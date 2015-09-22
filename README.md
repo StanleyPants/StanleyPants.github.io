@@ -4,4 +4,4 @@ Copyright @StanleyPants
 
 ## Description
 
-This is the primary portfolio for StanleyPants.
+This is the primary portfolio for StanleyPants user.
