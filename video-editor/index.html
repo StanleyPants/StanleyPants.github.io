@@ -30,6 +30,7 @@
         <label for="apiKey">Decart API key</label>
         <div class="key-row">
           <input id="apiKey" type="password" autocomplete="off" spellcheck="false"
+                 autocapitalize="none" autocorrect="off"
                  placeholder="Paste your Decart API key (x-api-key)" />
           <button id="toggleKey" type="button" class="ghost-btn small" aria-label="Show or hide API key">👁</button>
         </div>
@@ -43,6 +44,7 @@
       <div class="field">
         <label for="model">Model</label>
         <input id="model" list="modelOptions" spellcheck="false"
+               autocapitalize="none" autocorrect="off" autocomplete="off"
                placeholder="lucy-fast-v2v" value="lucy-fast-v2v" />
         <datalist id="modelOptions">
           <option value="lucy-fast-v2v">Lucy Fast — fastest video-to-video edit</option>
@@ -54,7 +56,8 @@
 
       <div class="field">
         <label for="apiBase">API base URL</label>
-        <input id="apiBase" spellcheck="false"
+        <input id="apiBase" spellcheck="false" type="url"
+               autocapitalize="none" autocorrect="off" autocomplete="off" inputmode="url"
                placeholder="https://api.decart.ai/v1" value="https://api.decart.ai/v1" />
         <p class="hint">
           Leave as the default to call Decart directly. If you hit a CORS / "Failed to fetch" error,
