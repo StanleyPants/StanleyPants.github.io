@@ -188,7 +188,7 @@ function refreshEditButton() {
 async function onEdit() {
   clearError();
   const apiKey = els.apiKey.value.trim();
-  const model = (els.model.value.trim() || "lucy-fast-v2v");
+  const model = (els.model.value.trim() || "lucy-latest");
   const prompt = els.prompt.value.trim();
 
   if (!apiKey) return showError("Add your Decart API key in ⚙️ API Settings first.");
