@@ -13,7 +13,10 @@
  *        -> binary video (downloaded as a Blob)
  */
 
-const DEFAULT_API_BASE = "https://api.decart.ai/v1";
+// Default to the CORS proxy so the app works out-of-the-box from GitHub Pages.
+// (Decart's API sends no CORS headers, so a direct browser call is blocked.)
+// Change this in Settings, or edit it here, if you deploy your own proxy.
+const DEFAULT_API_BASE = "https://decart-proxy.nitzan90265.workers.dev/v1";
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000; // give up after 10 minutes
 
