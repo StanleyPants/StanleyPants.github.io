@@ -41,8 +41,10 @@ shown in your Decart dashboard if these change.
 - **API keys are exposed in client-side apps.** This is a demo/portfolio pattern: your key is
   used directly from the browser. Do **not** hard-code a production key into a public site. For a
   real deployment, put a tiny server-side proxy in front of Decart that injects the key.
-- **CORS:** direct browser calls depend on Decart allowing cross-origin requests. If you hit a
-  "Failed to fetch"/CORS error, the same proxy approach solves it.
+- **CORS:** Decart's API does **not** send CORS headers, so direct browser calls from a static
+  page fail with "Failed to fetch". Deploy the tiny proxy in [`proxy/`](./proxy/) (a copy-paste
+  Cloudflare Worker) and point **Settings → API base URL** at it — e.g.
+  `https://your-worker.workers.dev/v1`. The proxy stores no key; yours just passes through.
 - Keep clips short for faster turnaround. Jobs time out client-side after 10 minutes.
 
 ## Files
@@ -50,3 +52,4 @@ shown in your Decart dashboard if these change.
 - `index.html` — markup
 - `styles.css` — styling (dark theme, responsive)
 - `app.js` — upload handling + Decart Queue API integration (create → poll → download)
+- `proxy/decart-proxy.js` — optional Cloudflare Worker that adds CORS (see `proxy/README.md`)

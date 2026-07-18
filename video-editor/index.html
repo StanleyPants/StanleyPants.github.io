@@ -51,6 +51,17 @@
         </datalist>
         <p class="hint">Video-to-video edit model slug. Pick one or type the exact slug from your Decart dashboard.</p>
       </div>
+
+      <div class="field">
+        <label for="apiBase">API base URL</label>
+        <input id="apiBase" spellcheck="false"
+               placeholder="https://api.decart.ai/v1" value="https://api.decart.ai/v1" />
+        <p class="hint">
+          Leave as the default to call Decart directly. If you hit a CORS / "Failed to fetch" error,
+          deploy the proxy in <code>proxy/</code> and put its URL here (e.g.
+          <code>https://your-worker.workers.dev/v1</code>).
+        </p>
+      </div>
     </section>
 
     <main class="grid">
