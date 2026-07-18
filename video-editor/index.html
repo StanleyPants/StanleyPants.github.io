@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Video Editor · Decart</title>
   <meta name="description" content="Upload a video and edit it with AI prompts using the Decart.ai API." />
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
   <div class="app">
@@ -61,8 +61,8 @@
         <label for="apiBase">API base URL</label>
         <input id="apiBase" spellcheck="false" type="url"
                autocapitalize="none" autocorrect="off" autocomplete="off" inputmode="url"
-               placeholder="https://decart-proxy.nitzan90265.workers.dev/v1"
-               value="https://decart-proxy.nitzan90265.workers.dev/v1" />
+               placeholder="https://salty-osprey-9099.stanleypants.deno.net/v1"
+               value="https://salty-osprey-9099.stanleypants.deno.net/v1" />
         <p class="hint">
           Defaults to the CORS proxy (needed because Decart sends no CORS headers).
           To call Decart directly instead, use <code>https://api.decart.ai/v1</code>, or point this
@@ -146,12 +146,13 @@
 
     <footer class="footer">
       <p>
-        Client-side demo · calls the Decart Queue API directly from your browser.
-        Requests go to <code>api.decart.ai</code>. Your key and video never touch any other server.
+        Client-side demo · calls the Decart Queue API from your browser through a thin CORS proxy
+        (no key stored server-side). Your Decart key stays in this browser and is sent as
+        <code>x-api-key</code> with each request.
       </p>
     </footer>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
