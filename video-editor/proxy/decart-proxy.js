@@ -1,31 +1,19 @@
 /**
  * Decart CORS proxy — Cloudflare Worker.
  *
- * Purpose: a browser page served from GitHub Pages can't call https://api.decart.ai
- * directly because that API doesn't return CORS headers. This Worker forwards the
- * request to Decart and adds the CORS headers the browser needs.
+ * A browser page on GitHub Pages can't call https://api.decart.ai directly because
+ * that API returns no CORS headers. This Worker forwards the request to Decart and
+ * adds the CORS headers the browser needs. It holds NO secret — your Decart key is
+ * sent from the browser as x-api-key and simply passes through.
  *
- * It holds NO secret. Your Decart key is still sent from the browser (the app's
- * "API key" field) as the x-api-key header and simply passes through.
+ * Deploy: paste this whole file into your Cloudflare Worker's code editor and Deploy.
+ * Then set the app's "API base URL" to https://<your-worker>.workers.dev/v1
  *
- * It forwards a CLEAN request that mimics curl: only x-api-key + content-type are
- * sent upstream (browser Origin/Referer/Sec-Fetch-* headers are dropped, since some
- * upstream WAFs reject them), and the body is buffered so it goes with a proper
- * Content-Length instead of chunked streaming (which nginx can reject with a 405).
- *
- * Deploy (dashboard, no CLI needed):
- *   1. Open your Worker in dash.cloudflare.com -> edit its code
- *   2. Replace everything with this whole file, then Deploy
- *   3. API base URL in the app stays: https://<your-worker>.workers.dev/v1
- *
- * Locked to your site by default via ALLOWED_ORIGINS. Use ["*"] to allow any origin.
+ * Locked to your site via ALLOWED_ORIGINS. Use ["*"] to allow any origin.
  */
 
 const ALLOWED_ORIGINS = ["https://stanleypants.github.io"];
 const UPSTREAM = "https://api.decart.ai";
-
-// Only these request headers are forwarded upstream (case-insensitive).
-const FORWARD_HEADERS = ["x-api-key", "content-type", "accept"];
 
 export default {
   async fetch(request) {
@@ -37,35 +25,24 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    const url = new URL(request.url);
-    const target = UPSTREAM + url.pathname + url.search;
-
-    // Build a clean request that looks like curl (no browser-only headers).
-    const headers = new Headers();
-    for (const name of FORWARD_HEADERS) {
-      const v = request.headers.get(name);
-      if (v) headers.set(name, v);
-    }
-    if (!headers.has("accept")) headers.set("accept", "*/*");
-
-    // Buffer the body so Content-Length is set (curl-like), not chunked.
-    const method = request.method;
-    const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
-
-    let resp;
     try {
-      resp = await fetch(target, { method, headers, body, redirect: "follow" });
+      const url = new URL(request.url);
+      const target = UPSTREAM + url.pathname + url.search;
+
+      // Forward method, headers (incl. x-api-key), and body verbatim.
+      const resp = await fetch(new Request(target, request));
+
+      // Copy the upstream response and attach CORS (works for JSON and binary video).
+      const out = new Response(resp.body, resp);
+      for (const [k, v] of Object.entries(cors)) out.headers.set(k, v);
+      return out;
     } catch (err) {
+      // Always return CORS headers, even on failure, so the browser sees the error.
       return new Response(
         JSON.stringify({ error: "Proxy could not reach Decart", detail: String(err) }),
         { status: 502, headers: { "content-type": "application/json", ...cors } }
       );
     }
-
-    // Copy the upstream response and attach CORS headers (works for JSON and binary video).
-    const out = new Response(resp.body, resp);
-    for (const [k, v] of Object.entries(cors)) out.headers.set(k, v);
-    return out;
   },
 };
 
