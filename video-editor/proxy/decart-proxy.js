@@ -32,8 +32,18 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
+    const reqUrl = new URL(request.url);
+
+    // Version marker — visit /__whoami to confirm which code is deployed.
+    if (reqUrl.pathname === "/__whoami") {
+      return new Response("decart-proxy v5 (clean-headers)", {
+        status: 200,
+        headers: { "content-type": "text/plain", ...cors },
+      });
+    }
+
     try {
-      const url = new URL(request.url);
+      const url = reqUrl;
       const target = UPSTREAM + url.pathname + url.search;
 
       // Only forward the headers Decart needs (drop browser Origin/Referer/Sec-Fetch-*).
