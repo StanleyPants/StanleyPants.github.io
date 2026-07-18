@@ -13,7 +13,7 @@
  *        -> binary video (downloaded as a Blob)
  */
 
-const API_BASE = "https://api.decart.ai/v1";
+const DEFAULT_API_BASE = "https://api.decart.ai/v1";
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000; // give up after 10 minutes
 
@@ -26,6 +26,7 @@ const els = {
   apiKey: $("apiKey"),
   toggleKey: $("toggleKey"),
   model: $("model"),
+  apiBase: $("apiBase"),
 
   dropzone: $("dropzone"),
   fileInput: $("fileInput"),
@@ -61,6 +62,13 @@ let resultObjectUrl = null; // for revoke on re-run
 
 const LS_KEY = "decart_api_key";
 const LS_MODEL = "decart_model";
+const LS_BASE = "decart_api_base";
+
+// Current API base (no trailing slash), falling back to the direct Decart API.
+function apiBase() {
+  const v = (els.apiBase.value || "").trim().replace(/\/+$/, "");
+  return v || DEFAULT_API_BASE;
+}
 
 // ---- Init -----------------------------------------------------------------
 (function init() {
@@ -69,6 +77,8 @@ const LS_MODEL = "decart_model";
   if (savedKey) els.apiKey.value = savedKey;
   const savedModel = localStorage.getItem(LS_MODEL);
   if (savedModel) els.model.value = savedModel;
+  const savedBase = localStorage.getItem(LS_BASE);
+  if (savedBase) els.apiBase.value = savedBase;
 
   els.apiKey.addEventListener("input", () => {
     localStorage.setItem(LS_KEY, els.apiKey.value.trim());
@@ -76,6 +86,9 @@ const LS_MODEL = "decart_model";
   });
   els.model.addEventListener("input", () => {
     localStorage.setItem(LS_MODEL, els.model.value.trim());
+  });
+  els.apiBase.addEventListener("input", () => {
+    localStorage.setItem(LS_BASE, els.apiBase.value.trim());
   });
 
   els.settingsToggle.addEventListener("click", () => {
@@ -192,7 +205,7 @@ async function onEdit() {
     form.append("data", videoFile, videoFile.name);
     if (refImageFile) form.append("reference_image", refImageFile, refImageFile.name);
 
-    const createRes = await fetch(`${API_BASE}/jobs/${encodeURIComponent(model)}`, {
+    const createRes = await fetch(`${apiBase()}/jobs/${encodeURIComponent(model)}`, {
       method: "POST",
       headers: { "x-api-key": apiKey },
       body: form,
@@ -216,7 +229,7 @@ async function onEdit() {
 
     // --- 3. Fetch result content ---
     setProgress("Downloading edited video…", 92);
-    const contentRes = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}/content`, {
+    const contentRes = await fetch(`${apiBase()}/jobs/${encodeURIComponent(jobId)}/content`, {
       headers: { "x-api-key": apiKey },
     });
     if (currentJob.aborted) return;
@@ -244,7 +257,7 @@ async function pollUntilDone(jobId, apiKey) {
       throw new Error("Timed out waiting for the job to finish (10 min).");
     }
 
-    const res = await fetch(`${API_BASE}/jobs/${encodeURIComponent(jobId)}`, {
+    const res = await fetch(`${apiBase()}/jobs/${encodeURIComponent(jobId)}`, {
       headers: { "x-api-key": apiKey },
     });
     if (currentJob.aborted) throw new Error("Cancelled.");
