@@ -18,18 +18,23 @@
  *   6. In the video editor's  Settings -> API base URL  put:
  *        https://decart-proxy.<you>.workers.dev/v1
  *
- * Optional: lock it to your site by setting ALLOW_ORIGIN below to your Pages origin
- * (e.g. "https://stanleypants.github.io"). "*" allows any origin.
+ * Locked to your site by default: only requests from ALLOW_ORIGIN get CORS access.
+ * Set it to "*" to allow any origin, or add more origins to the list.
  */
 
-const ALLOW_ORIGIN = "*";
+// Origins allowed to use this proxy from a browser. Add more if you host the app elsewhere
+// (e.g. "http://localhost:8000" for local testing). Use "*" to allow everything.
+const ALLOWED_ORIGINS = ["https://stanleypants.github.io"];
 const UPSTREAM = "https://api.decart.ai";
 
 export default {
   async fetch(request) {
+    const origin = request.headers.get("Origin") || "";
+    const cors = corsHeaders(origin);
+
     // CORS preflight
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
+      return new Response(null, { status: 204, headers: cors });
     }
 
     const url = new URL(request.url);
@@ -44,21 +49,23 @@ export default {
     } catch (err) {
       return new Response(
         JSON.stringify({ error: "Proxy could not reach Decart", detail: String(err) }),
-        { status: 502, headers: { "content-type": "application/json", ...corsHeaders() } }
+        { status: 502, headers: { "content-type": "application/json", ...cors } }
       );
     }
 
     // Copy the upstream response and attach CORS headers (works for JSON and binary video).
     const out = new Response(resp.body, resp);
-    const cors = corsHeaders();
     for (const [k, v] of Object.entries(cors)) out.headers.set(k, v);
     return out;
   },
 };
 
-function corsHeaders() {
+// Echo the caller's Origin only when it's on the allow-list (or when "*" is allowed).
+function corsHeaders(origin) {
+  const allowAll = ALLOWED_ORIGINS.includes("*");
+  const allowed = allowAll ? "*" : (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]);
   return {
-    "Access-Control-Allow-Origin": ALLOW_ORIGIN,
+    "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "x-api-key, content-type",
     "Access-Control-Max-Age": "86400",

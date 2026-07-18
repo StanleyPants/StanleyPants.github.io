@@ -21,8 +21,15 @@ It holds **no secret**. Your Decart key is still typed into the app and passes t
    ```
 7. Add your Decart key as usual and edit a video — the CORS error is gone.
 
-To restrict the proxy to only your site, set `ALLOW_ORIGIN` in `decart-proxy.js` to your Pages
-origin (e.g. `"https://stanleypants.github.io"`) instead of `"*"`.
+By default the proxy is **locked to `https://stanleypants.github.io`** — only your site can use it
+from a browser. To allow another origin (e.g. local testing), add it to the `ALLOWED_ORIGINS` list
+in `decart-proxy.js`, for example:
+
+```js
+const ALLOWED_ORIGINS = ["https://stanleypants.github.io", "http://localhost:8000"];
+```
+
+Use `["*"]` to allow any origin.
 
 ## Alternatives
 
