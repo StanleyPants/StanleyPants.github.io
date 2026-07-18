@@ -11,9 +11,9 @@
  *   4. In the app: Settings -> API base URL = https://your-project.deno.dev/v1
  *   5. Verify: open https://your-project.deno.dev/__whoami -> should print the marker
  *
- * Forwards a clean, curl-like request (only x-api-key/content-type/accept reach
- * Decart; browser Origin/Referer/Sec-Fetch-*/User-Agent are dropped because
- * Decart's edge 405s on them). Buffers the body for a real Content-Length.
+ * Forwards a clean, curl-like request (only x-api-key, content-type, accept reach
+ * Decart; browser Origin, Referer, Sec-Fetch and User-Agent headers are dropped
+ * because Decart's edge 405s on them). Buffers the body for a real Content-Length.
  * Everything is inside try/catch so failures still carry CORS headers.
  */
 
