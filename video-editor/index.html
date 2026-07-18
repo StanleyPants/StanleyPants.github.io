@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Video Editor · Decart</title>
+  <meta name="description" content="Upload a video and edit it with AI prompts using the Decart.ai API." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">🎬</span>
+        <div>
+          <h1>AI Video Editor</h1>
+          <p class="tagline">Restyle and edit your footage with text prompts — powered by
+            <a href="https://platform.decart.ai/" target="_blank" rel="noopener">Decart.ai</a>
+          </p>
+        </div>
+      </div>
+      <button id="settingsToggle" class="ghost-btn" type="button" aria-expanded="false">
+        ⚙️ API Settings
+      </button>
+    </header>
+
+    <!-- API settings -->
+    <section id="settingsPanel" class="panel settings hidden" aria-label="API settings">
+      <div class="field">
+        <label for="apiKey">Decart API key</label>
+        <div class="key-row">
+          <input id="apiKey" type="password" autocomplete="off" spellcheck="false"
+                 placeholder="Paste your Decart API key (x-api-key)" />
+          <button id="toggleKey" type="button" class="ghost-btn small" aria-label="Show or hide API key">👁</button>
+        </div>
+        <p class="hint">
+          Get a key at <a href="https://platform.decart.ai/" target="_blank" rel="noopener">platform.decart.ai</a>.
+          It is stored only in this browser (localStorage) and sent directly to Decart.
+          <strong>Never embed a production key in a public site.</strong>
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="model">Model</label>
+        <input id="model" list="modelOptions" spellcheck="false"
+               placeholder="lucy-fast-v2v" value="lucy-fast-v2v" />
+        <datalist id="modelOptions">
+          <option value="lucy-fast-v2v">Lucy Fast — fastest video-to-video edit</option>
+          <option value="lucy-2-v2v">Lucy 2 — higher quality video-to-video</option>
+          <option value="lucy-pro-v2v">Lucy Pro — best quality (if available on your plan)</option>
+        </datalist>
+        <p class="hint">Video-to-video edit model slug. Pick one or type the exact slug from your Decart dashboard.</p>
+      </div>
+    </section>
+
+    <main class="grid">
+      <!-- Left: inputs -->
+      <section class="panel">
+        <h2 class="panel-title">1 · Source video</h2>
+
+        <div id="dropzone" class="dropzone" tabindex="0" role="button"
+             aria-label="Choose or drop a video file">
+          <input id="fileInput" type="file" accept="video/*" hidden />
+          <div class="dz-empty">
+            <div class="dz-icon">⬆️</div>
+            <p><strong>Drop a video here</strong> or click to browse</p>
+            <p class="hint">MP4 / MOV / WebM · short clips work best</p>
+          </div>
+          <video id="sourcePreview" class="preview hidden" controls playsinline muted></video>
+        </div>
+        <p id="fileMeta" class="file-meta hidden"></p>
+
+        <h2 class="panel-title">2 · Describe the edit</h2>
+        <textarea id="prompt" rows="3"
+          placeholder="e.g. Restyle this footage as a hand-drawn anime scene with vibrant neon highlights"></textarea>
+        <div class="chips" id="promptChips" aria-label="Example prompts">
+          <button type="button" class="chip">Anime restyle, neon highlights</button>
+          <button type="button" class="chip">Cinematic teal-and-orange grade with film grain</button>
+          <button type="button" class="chip">Claymation stop-motion look</button>
+          <button type="button" class="chip">Change the sky to a dramatic sunset</button>
+          <button type="button" class="chip">Cyberpunk city, rainy, moody</button>
+        </div>
+
+        <details class="advanced">
+          <summary>Optional reference image</summary>
+          <div class="field">
+            <input id="refInput" type="file" accept="image/*" />
+            <p class="hint">Guides the edit (e.g. a specific style, item, or logo to add).</p>
+            <img id="refPreview" class="ref-preview hidden" alt="Reference image preview" />
+          </div>
+        </details>
+
+        <button id="editBtn" class="primary-btn" type="button" disabled>✨ Edit video</button>
+        <p id="inlineError" class="inline-error hidden" role="alert"></p>
+      </section>
+
+      <!-- Right: output -->
+      <section class="panel">
+        <h2 class="panel-title">3 · Result</h2>
+
+        <div id="resultArea" class="result-area">
+          <div id="resultEmpty" class="result-empty">
+            <div class="dz-icon">🪄</div>
+            <p>Your edited video will appear here.</p>
+          </div>
+
+          <div id="progress" class="progress hidden">
+            <div class="spinner" aria-hidden="true"></div>
+            <p id="progressLabel">Working…</p>
+            <div class="bar"><div id="progressBar" class="bar-fill"></div></div>
+            <button id="cancelBtn" class="ghost-btn small" type="button">Cancel</button>
+          </div>
+
+          <video id="resultPreview" class="preview hidden" controls playsinline></video>
+        </div>
+
+        <div id="resultActions" class="result-actions hidden">
+          <a id="downloadLink" class="primary-btn" download="edited-video.mp4">⬇️ Download</a>
+          <button id="againBtn" class="ghost-btn" type="button">Edit again</button>
+        </div>
+
+        <details class="advanced log-wrap">
+          <summary>Activity log</summary>
+          <pre id="log" class="log" aria-live="polite"></pre>
+        </details>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Client-side demo · calls the Decart Queue API directly from your browser.
+        Requests go to <code>api.decart.ai</code>. Your key and video never touch any other server.
+      </p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
