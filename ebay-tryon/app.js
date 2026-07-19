@@ -34,15 +34,22 @@ const els = {
   dzEmpty: document.querySelector("#dropzone .dz-empty"),
   fileMeta: $("fileMeta"),
 
-  charPrompt: $("charPrompt"),
   charModel: $("charModel"),
   charSize: $("charSize"),
+  charPrompt: $("charPrompt"),
   charBtn: $("charBtn"),
+  charUploadBtn: $("charUploadBtn"),
+  charFile: $("charFile"),
+  charThumb: $("charThumb"),
   charStatus: $("charStatus"),
 
-  imgDrop: $("imgDrop"),
-  imgInput: $("imgInput"),
-  imgThumbs: $("imgThumbs"),
+  setPrompt: $("setPrompt"),
+  setBtn: $("setBtn"),
+  setUploadBtn: $("setUploadBtn"),
+  setFile: $("setFile"),
+  setThumb: $("setThumb"),
+  setStatus: $("setStatus"),
+
   genPrompt: $("genPrompt"),
   genRes: $("genRes"),
   genDur: $("genDur"),
@@ -74,7 +81,8 @@ const LS_BASE = "decart_api_base";
 const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-on model
 
 let videoFile = null;
-let genImages = [];            // { file, dataUrl } for Seedance generation (single image)
+let charImgSrc = null;         // character image (data URI or fal URL)
+let setImgSrc = null;          // setting image (optional)
 let generating = false;
 let listings = [];             // { title, image }
 let selected = [];             // indices into listings, in click order (max 5)
@@ -105,8 +113,7 @@ let running = false;
   });
 
   setupDropzone();
-  setupCharacter();
-  setupImageGen();
+  setupSourceImages();
   els.loadBtn.addEventListener("click", loadListings);
   els.ebayUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") loadListings(); });
   els.extractBtn.addEventListener("click", extractFromPaste);
@@ -159,102 +166,101 @@ function setVideo(file) {
   refreshGenerate();
 }
 
-// ---- Character creation (fal.ai image model) ------------------------------
-function setupCharacter() {
-  els.charPrompt.addEventListener("input", refreshCharBtn);
-  els.charBtn.addEventListener("click", createCharacter);
+// ---- Source images (character + setting) & video generation ---------------
+function setupSourceImages() {
+  // Character slot
+  els.charPrompt.addEventListener("input", refreshImgBtns);
+  els.charBtn.addEventListener("click", () => createImage("character"));
+  els.charUploadBtn.addEventListener("click", () => els.charFile.click());
+  els.charFile.addEventListener("change", (e) => uploadInto("character", e.target.files));
+  // Setting slot
+  els.setPrompt.addEventListener("input", refreshImgBtns);
+  els.setBtn.addEventListener("click", () => createImage("setting"));
+  els.setUploadBtn.addEventListener("click", () => els.setFile.click());
+  els.setFile.addEventListener("change", (e) => uploadInto("setting", e.target.files));
+  // Animate
+  els.genPrompt.addEventListener("input", refreshGenBtn);
+  els.genBtn.addEventListener("click", generateSource);
 }
 
-function refreshCharBtn() {
-  const ready = !generating && els.charPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
-  els.charBtn.disabled = !ready;
+// Per-slot config so character and setting share one implementation.
+function slot(kind) {
+  return kind === "character"
+    ? { get: () => charImgSrc, set: (v) => (charImgSrc = v), prompt: els.charPrompt, btn: els.charBtn, thumb: els.charThumb, status: els.charStatus, file: els.charFile, label: "character", emoji: "🧑‍🎨", make: "Create character" }
+    : { get: () => setImgSrc, set: (v) => (setImgSrc = v), prompt: els.setPrompt, btn: els.setBtn, thumb: els.setThumb, status: els.setStatus, file: els.setFile, label: "setting", emoji: "🏞️", make: "Create setting" };
+}
+
+function refreshImgBtns() {
+  const bad = generating || /api\.decart\.ai/i.test(apiBase());
+  els.charBtn.disabled = bad || els.charPrompt.value.trim().length === 0;
+  els.setBtn.disabled = bad || els.setPrompt.value.trim().length === 0;
   els.charBtn.textContent = generating ? "…" : "🧑‍🎨 Create character";
+  els.setBtn.textContent = generating ? "…" : "🏞️ Create setting";
 }
 
-async function createCharacter() {
+async function uploadInto(kind, fileList) {
+  const s = slot(kind);
+  const f = Array.from(fileList || []).find((x) => x.type.startsWith("image/"));
+  if (f) {
+    s.set(await readAsDataURL(f));
+    renderSlot(kind);
+    setStatusEl(s.status, `✅ ${cap(s.label)} image added.`, "ok");
+  }
+  s.file.value = "";
+  refreshGenBtn();
+}
+
+async function createImage(kind) {
   clearError();
-  if (!els.charPrompt.value.trim()) return showError("Describe the character first.");
+  const s = slot(kind);
+  if (!s.prompt.value.trim()) return showError(`Describe the ${s.label} first.`);
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
   }
 
   generating = true;
-  refreshCharBtn(); refreshGenBtn();
-  setStatusEl(els.charStatus, `<div class="spinner"></div><p>Creating character…</p>`, "");
+  refreshImgBtns(); refreshGenBtn();
+  setStatusEl(s.status, `<div class="spinner"></div><p>Creating ${s.label}…</p>`, "");
 
   const model = els.charModel.value;
-  const input = { prompt: els.charPrompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
-
+  const input = { prompt: s.prompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
   try {
     const result = await falRun(model, input, (status, secs) =>
-      setStatusEl(els.charStatus, `<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${secs}s)</p>`, ""));
+      setStatusEl(s.status, `<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${secs}s)</p>`, ""));
     const imageUrl = result.images && result.images[0] && result.images[0].url;
     if (!imageUrl) throw new Error("No image URL in the result.");
-
-    // Use the generated image as the input for the Seedance animate step (fal accepts the URL directly).
-    genImages = [{ file: null, dataUrl: imageUrl }];
-    renderThumbs();
-    refreshGenBtn();
-    setStatusEl(els.charStatus, `✅ Character created — added below. <img src="${imageUrl}" alt="character" style="max-width:120px;border-radius:8px;margin-top:8px;display:block;" />`, "ok");
+    s.set(imageUrl); // fal image URL — Seedance accepts it directly
+    renderSlot(kind);
+    setStatusEl(s.status, `✅ ${cap(s.label)} created.`, "ok");
   } catch (err) {
     console.error(err);
-    setStatusEl(els.charStatus, "⚠️ " + escapeHtml(err.message), "err");
+    setStatusEl(s.status, "⚠️ " + escapeHtml(err.message), "err");
   } finally {
     generating = false;
-    refreshCharBtn(); refreshGenBtn();
+    refreshImgBtns(); refreshGenBtn();
   }
 }
 
-// ---- Source-video generation (fal.ai Seedance 2.0) ------------------------
-function setupImageGen() {
-  const dz = els.imgDrop;
-  dz.addEventListener("click", () => els.imgInput.click());
-  dz.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.imgInput.click(); }
-  });
-  els.imgInput.addEventListener("change", (e) => addImages(e.target.files));
-  ["dragenter", "dragover"].forEach((ev) =>
-    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("dragover"); }));
-  ["dragleave", "drop"].forEach((ev) =>
-    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("dragover"); }));
-  dz.addEventListener("drop", (e) => { e.preventDefault(); addImages(e.dataTransfer.files); });
-
-  els.genPrompt.addEventListener("input", refreshGenBtn);
-  els.genBtn.addEventListener("click", generateSource);
-}
-
-async function addImages(fileList) {
-  const f = Array.from(fileList || []).find((x) => x.type.startsWith("image/"));
-  if (f) {
-    const dataUrl = await readAsDataURL(f);
-    genImages = [{ file: f, dataUrl }]; // single image — replaces any previous
-  }
-  els.imgInput.value = "";
-  renderThumbs();
+function renderSlot(kind) {
+  const s = slot(kind);
+  s.thumb.innerHTML = "";
+  const src = s.get();
+  if (!src) { refreshGenBtn(); return; }
+  const wrap = document.createElement("div");
+  wrap.className = "img-thumb";
+  const img = document.createElement("img");
+  img.src = src;
+  img.alt = s.label;
+  const rm = document.createElement("button");
+  rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Remove";
+  rm.addEventListener("click", () => { s.set(null); s.thumb.innerHTML = ""; s.status.classList.add("hidden"); refreshGenBtn(); });
+  wrap.append(img, rm);
+  s.thumb.appendChild(wrap);
   refreshGenBtn();
 }
 
-function renderThumbs() {
-  els.imgThumbs.innerHTML = "";
-  genImages.forEach((im, i) => {
-    const wrap = document.createElement("div");
-    wrap.className = "img-thumb";
-    const img = document.createElement("img");
-    img.src = im.dataUrl;
-    img.alt = `Image ${i + 1}`;
-    const rm = document.createElement("button");
-    rm.className = "rm";
-    rm.type = "button";
-    rm.textContent = "×";
-    rm.title = "Remove";
-    rm.addEventListener("click", () => { genImages.splice(i, 1); renderThumbs(); refreshGenBtn(); });
-    wrap.append(img, rm);
-    els.imgThumbs.appendChild(wrap);
-  });
-}
-
 function refreshGenBtn() {
-  const ready = !generating && genImages.length === 1 &&
+  const ready = !generating && !!charImgSrc &&
                 els.genPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
   els.genBtn.disabled = !ready;
   els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate source video";
@@ -262,25 +268,28 @@ function refreshGenBtn() {
 
 async function generateSource() {
   clearError();
-  if (!genImages.length) return showError("Add an image first.");
+  const images = [charImgSrc, setImgSrc].filter(Boolean);
+  if (!images.length) return showError("Create or upload a character image first.");
   if (!els.genPrompt.value.trim()) return showError("Write a prompt for the video.");
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
   }
 
   generating = true;
-  refreshGenBtn();
+  refreshGenBtn(); refreshImgBtns();
   setGenStatus(`<div class="spinner"></div><p>Submitting to Seedance 2.0…</p>`, "");
 
   const fast = els.genFast.checked;
-  const model = `bytedance/seedance-2.0${fast ? "/fast" : ""}/image-to-video`;
+  // Two images -> combine via reference-to-video (@Image1 char, @Image2 setting); one -> image-to-video.
+  const combine = images.length >= 2;
+  const model = `bytedance/seedance-2.0${fast ? "/fast" : ""}/${combine ? "reference-to-video" : "image-to-video"}`;
   const input = {
     prompt: els.genPrompt.value.trim(),
-    image_url: genImages[0].dataUrl,
     resolution: els.genRes.value,
     aspect_ratio: els.genAsp.value,
     generate_audio: els.genAudio.checked,
   };
+  if (combine) input.image_urls = images; else input.image_url = images[0];
   if (els.genDur.value !== "auto") input.duration = els.genDur.value;
 
   try {
@@ -302,9 +311,11 @@ async function generateSource() {
     setGenStatus("⚠️ " + escapeHtml(err.message), "err");
   } finally {
     generating = false;
-    refreshGenBtn(); refreshCharBtn();
+    refreshGenBtn(); refreshImgBtns();
   }
 }
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 // Submit an input to a fal.ai model via the proxy queue, poll to completion,
 // and return the result JSON. onStatus(status, seconds) is called while polling.
