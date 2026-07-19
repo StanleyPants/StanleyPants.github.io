@@ -11,6 +11,8 @@ the `reference_image`, via [Decart.ai](https://platform.decart.ai/)'s try-on mod
 You can start from **text only**:
 
 - **1a Character** — describe a person → fal image model (FLUX.1 [dev]/[schnell] or FLUX 2 Turbo, selectable).
+  Optionally attach a **Reference photo** to keep a specific face/identity — this routes to **FLUX Kontext**
+  (`fal-ai/flux-pro/kontext`, image + prompt) instead of plain text-to-image.
 - **1b Setting** (optional) — describe a scene/background → another generated image.
 - **1c Source video** — Seedance combines them: with both images it uses **reference-to-video**
   (`@Image1` = character, `@Image2` = setting); with only a character it uses **image-to-video**.
