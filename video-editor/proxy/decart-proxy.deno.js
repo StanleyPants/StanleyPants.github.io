@@ -57,7 +57,7 @@ Deno.serve(async (request) => {
 
   // ---- Version marker -----------------------------------------------------
   if (reqUrl.pathname === "/__whoami") {
-    return text("decart-proxy DENO v8 (ebay-browse-api+decart)", cors);
+    return text("decart-proxy DENO v9 (ebay-browse-api+seller+decart)", cors);
   }
 
   // ---- eBay listings ------------------------------------------------------
@@ -99,11 +99,14 @@ Deno.serve(async (request) => {
 async function handleEbay(reqUrl, cors) {
   const input = reqUrl.searchParams.get("url");
   if (!input) return json({ error: "Missing ?url=" }, cors, 400);
+  const sellerParam = (reqUrl.searchParams.get("seller") || "").trim();
 
   // Preferred: eBay's official Browse API (needs EBAY_CLIENT_ID/SECRET env vars).
   if (Deno.env.get("EBAY_CLIENT_ID") && Deno.env.get("EBAY_CLIENT_SECRET")) {
     try {
-      const { q, seller } = parseSearch(input);
+      const parsed = parseSearch(input);
+      const q = parsed.q;
+      const seller = sellerParam || parsed.seller; // explicit seller field wins
       if (!q && !seller) return json({ error: "Enter keywords or a seller/search URL.", listings: [] }, cors, 200);
       if (!q && seller) {
         return json({ error: "eBay's Browse API needs a keyword — add a search term (a seller filter alone isn't supported).", listings: [] }, cors, 200);

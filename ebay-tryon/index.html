@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
   <div class="app">
@@ -88,10 +88,12 @@
                  placeholder="keywords (e.g. vintage denim jacket) or a seller/search URL" />
           <button id="loadBtn" class="ghost-btn" type="button">Search</button>
         </div>
+        <input id="sellerInput" type="text" spellcheck="false" autocapitalize="none" autocorrect="off"
+               style="margin-top:8px;" placeholder="Seller username (optional) — limits results to this seller" />
         <p class="hint">
-          Type keywords, or paste a seller/search URL. Uses eBay's official Browse API — set
-          <code>EBAY_CLIENT_ID</code> + <code>EBAY_CLIENT_SECRET</code> in your Deno proxy's env vars.
-          (Searching a whole store still needs a keyword.)
+          Type keywords (required), and optionally a <strong>seller username</strong> to search only that
+          seller's items. Or paste a full eBay seller/search URL in the first box. Uses eBay's official
+          Browse API — set <code>EBAY_CLIENT_ID</code> + <code>EBAY_CLIENT_SECRET</code> in your Deno proxy.
         </p>
 
         <details class="advanced">
@@ -146,6 +148,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

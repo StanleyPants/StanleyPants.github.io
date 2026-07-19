@@ -35,6 +35,7 @@ const els = {
   fileMeta: $("fileMeta"),
 
   ebayUrl: $("ebayUrl"),
+  sellerInput: $("sellerInput"),
   loadBtn: $("loadBtn"),
   pasteBox: $("pasteBox"),
   extractBtn: $("extractBtn"),
@@ -141,6 +142,7 @@ function setVideo(file) {
 async function loadListings() {
   clearError();
   const query = els.ebayUrl.value.trim();
+  const seller = els.sellerInput.value.trim();
   if (!query) return showError("Enter keywords or an eBay search/seller URL.");
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it's what queries eBay.");
@@ -151,7 +153,9 @@ async function loadListings() {
   els.loadBtn.disabled = true;
 
   try {
-    const res = await fetch(`${proxyRoot()}/ebay?url=${encodeURIComponent(query)}`);
+    let endpoint = `${proxyRoot()}/ebay?url=${encodeURIComponent(query)}`;
+    if (seller) endpoint += `&seller=${encodeURIComponent(seller)}`;
+    const res = await fetch(endpoint);
     const ct = res.headers.get("content-type") || "";
     const data = ct.includes("application/json") ? await res.json() : null;
     if (!res.ok) {
