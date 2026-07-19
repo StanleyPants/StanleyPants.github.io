@@ -28,6 +28,23 @@ const FORWARD_HEADERS = ["x-api-key", "content-type", "accept"];
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
+// Rich, browser-like headers to reduce eBay's bot 403s on the HTML fetch.
+const RICH_HEADERS = {
+  "user-agent": BROWSER_UA,
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "accept-language": "en-US,en;q=0.9",
+  "cache-control": "no-cache",
+  "pragma": "no-cache",
+  "sec-ch-ua": '"Chromium";v="124", "Not-A.Brand";v="99"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"',
+  "sec-fetch-dest": "document",
+  "sec-fetch-mode": "navigate",
+  "sec-fetch-site": "none",
+  "sec-fetch-user": "?1",
+  "upgrade-insecure-requests": "1",
+};
+
 Deno.serve(async (request) => {
   const origin = request.headers.get("Origin") || "";
   const cors = corsHeaders(origin);
@@ -40,7 +57,7 @@ Deno.serve(async (request) => {
 
   // ---- Version marker -----------------------------------------------------
   if (reqUrl.pathname === "/__whoami") {
-    return text("decart-proxy DENO v6 (ebay+decart)", cors);
+    return text("decart-proxy DENO v7 (ebay-rss+decart)", cors);
   }
 
   // ---- eBay listings ------------------------------------------------------
@@ -93,24 +110,73 @@ async function handleEbay(reqUrl, cors) {
     return json({ error: "Only ebay.com URLs are allowed" }, cors, 400);
   }
 
-  try {
-    const resp = await fetch(target, {
-      headers: {
-        "user-agent": BROWSER_UA,
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "en-US,en;q=0.9",
-      },
-      redirect: "follow",
-    });
-    if (!resp.ok) {
-      return json({ error: `eBay returned ${resp.status}`, listings: [] }, cors, 200);
-    }
-    const html = await resp.text();
-    const listings = parseEbayListings(html, 10);
-    return json({ listings, count: listings.length }, cors, 200);
-  } catch (err) {
-    return json({ error: "Failed to fetch eBay page", detail: String(err), listings: [] }, cors, 200);
+  // Try candidate URLs in order. eBay 403s datacenter IPs on the HTML page more
+  // readily than on the RSS feed, so we try the page first, then the RSS variant.
+  const candidates = [target];
+  const rss = withParam(target, "_rss", "1");
+  if (rss && rss !== target) candidates.push(rss);
+
+  let lastStatus = 0;
+  for (const url of candidates) {
+    try {
+      const resp = await fetch(url, { headers: RICH_HEADERS, redirect: "follow" });
+      lastStatus = resp.status;
+      if (!resp.ok) continue;
+      const bodyText = await resp.text();
+      const isRss = /_rss=1/.test(url) || /<rss\b/i.test(bodyText) || bodyText.startsWith("<?xml");
+      const listings = isRss ? parseEbayRss(bodyText, 10) : parseEbayListings(bodyText, 10);
+      if (listings.length) return json({ listings, source: isRss ? "rss" : "html" }, cors, 200);
+    } catch { /* try next candidate */ }
   }
+
+  const msg = lastStatus === 403 || lastStatus === 429
+    ? `eBay blocked the request (HTTP ${lastStatus}) — its bot protection. Try an eBay search URL like ` +
+      `https://www.ebay.com/sch/i.html?_nkw=KEYWORDS, or see the README about eBay's official API.`
+    : lastStatus
+      ? `eBay returned ${lastStatus} and no listings were found.`
+      : "Couldn't reach eBay.";
+  return json({ error: msg, listings: [] }, cors, 200);
+}
+
+// Add or replace a query param on a URL, returning the new URL string (or null).
+function withParam(urlStr, key, value) {
+  try {
+    const u = new URL(urlStr);
+    u.searchParams.set(key, value);
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse eBay RSS (feed) items into listings. Each <item> has a title and usually a
+ * thumbnail via <enclosure>, media:content/thumbnail, or an <img> in the description.
+ */
+function parseEbayRss(xml, limit) {
+  const listings = [];
+  const seen = new Set();
+  const items = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
+  for (const item of items) {
+    if (listings.length >= limit) break;
+
+    const titleM = item.match(/<title>\s*(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?\s*<\/title>/i);
+    const title = titleM ? decodeEntities(titleM[1]).trim() : "";
+
+    let img =
+      (item.match(/<enclosure[^>]+url="([^"]+ebayimg[^"]+)"/i) || [])[1] ||
+      (item.match(/<media:(?:content|thumbnail)[^>]+url="([^"]+ebayimg[^"]+)"/i) || [])[1] ||
+      (item.match(/<img[^>]+src="([^"]+ebayimg\.com[^"]+)"/i) || [])[1];
+    if (!img) continue;
+
+    img = img.replace(/^http:/i, "https:").replace(/\/s-l\d+\./i, "/s-l500.");
+    const idM = img.match(/\/g\/([^/]+)/i) || img.match(/\/images\/([^/]+)/i);
+    const key = idM ? idM[1] : img;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    listings.push({ title, image: img });
+  }
+  return listings;
 }
 
 async function handleImg(reqUrl, cors) {

@@ -46,8 +46,12 @@ image onto the person in the video. Switch to `lucy-vton-3`, `lucy-clip`, `lucy-
 
 ## Notes & limitations
 
-- **eBay may block scraping.** If a page returns a challenge/CAPTCHA to the proxy, no listings come
-  back — try a plain seller "items" or search URL. The parser is best-effort HTML scraping.
+- **eBay may block scraping.** eBay 403s datacenter IPs (like Deno's) aggressively. The proxy sends
+  browser-like headers and falls back to eBay's **RSS feed** (`&_rss=1`) for search URLs, which is
+  more tolerant — so a **search URL** (`https://www.ebay.com/sch/i.html?_nkw=KEYWORDS` or `?_ssn=SELLER`)
+  works far more reliably than a store page. If eBay still blocks it, the robust fix is eBay's official
+  [Browse API](https://developer.ebay.com/api-docs/buy/browse/overview.html) (free developer account +
+  OAuth) — ask and I can wire the proxy to use it instead of scraping.
 - **API keys are client-side** — fine for a personal demo; use a key-injecting proxy for production.
 - Keep clips short; 5 concurrent uploads/jobs are heavier and may hit rate limits (the app shows a
   429 message per card if so).
