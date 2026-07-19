@@ -52,6 +52,9 @@ a { color: var(--accent-2); }
 .settings .field + .field { margin-top: 16px; }
 
 .field label, .field-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.muted-tag { font-weight: 500; font-size: 11px; color: var(--accent-2); background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.3); border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
+#extractBtn { margin-top: 10px; }
+#pasteBox { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 .hint.center { text-align: center; }
 
