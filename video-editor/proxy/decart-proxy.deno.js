@@ -57,7 +57,7 @@ Deno.serve(async (request) => {
 
   // ---- Version marker -----------------------------------------------------
   if (reqUrl.pathname === "/__whoami") {
-    return text("decart-proxy DENO v9 (ebay-browse-api+seller+decart)", cors);
+    return text("decart-proxy DENO v10 (ebay+fal-seedance+decart)", cors);
   }
 
   // ---- eBay listings ------------------------------------------------------
@@ -65,9 +65,14 @@ Deno.serve(async (request) => {
     return handleEbay(reqUrl, cors);
   }
 
-  // ---- eBay image proxy ---------------------------------------------------
+  // ---- eBay image / fal media proxy ---------------------------------------
   if (reqUrl.pathname === "/img") {
     return handleImg(reqUrl, cors);
+  }
+
+  // ---- fal.ai (Seedance) passthrough — injects FAL_KEY --------------------
+  if (reqUrl.pathname.startsWith("/fal/")) {
+    return handleFal(request, reqUrl, cors);
   }
 
   // ---- Decart API forwarding ----------------------------------------------
@@ -276,18 +281,41 @@ async function handleImg(reqUrl, cors) {
   } catch {
     return json({ error: "Invalid url" }, cors, 400);
   }
-  if (!/ebayimg\.com$/i.test(host)) {
-    return json({ error: "Only ebayimg.com images are allowed" }, cors, 400);
+  if (!/(ebayimg\.com|fal\.media)$/i.test(host)) {
+    return json({ error: "Only ebayimg.com / fal.media URLs are allowed" }, cors, 400);
   }
 
   try {
     const resp = await fetch(target, { headers: { "user-agent": BROWSER_UA } });
     const out = new Response(resp.body, { status: resp.status });
-    out.headers.set("content-type", resp.headers.get("content-type") || "image/jpeg");
+    out.headers.set("content-type", resp.headers.get("content-type") || "application/octet-stream");
     for (const [k, v] of Object.entries(cors)) out.headers.set(k, v);
     return out;
   } catch (err) {
-    return json({ error: "Failed to fetch image", detail: String(err) }, cors, 502);
+    return json({ error: "Failed to fetch media", detail: String(err) }, cors, 502);
+  }
+}
+
+// Forward to fal.ai's queue API, injecting the FAL_KEY server-side.
+// The app calls /fal/<falpath>; we proxy to https://queue.fal.run/<falpath>.
+async function handleFal(request, reqUrl, cors) {
+  const key = Deno.env.get("FAL_KEY");
+  if (!key) return json({ error: "FAL_KEY not set in the proxy env vars" }, cors, 500);
+  const target = "https://queue.fal.run/" + reqUrl.pathname.slice("/fal/".length) + reqUrl.search;
+  try {
+    const headers = new Headers();
+    headers.set("authorization", "Key " + key);
+    headers.set("accept", "application/json");
+    const ct = request.headers.get("content-type");
+    if (ct) headers.set("content-type", ct);
+    let body;
+    if (request.method !== "GET" && request.method !== "HEAD") body = await request.arrayBuffer();
+    const resp = await fetch(target, { method: request.method, headers, body });
+    const out = new Response(resp.body, resp);
+    for (const [k, v] of Object.entries(cors)) out.headers.set(k, v);
+    return out;
+  } catch (err) {
+    return json({ error: "fal proxy error", detail: String((err && err.stack) || err) }, cors, 502);
   }
 }
 
