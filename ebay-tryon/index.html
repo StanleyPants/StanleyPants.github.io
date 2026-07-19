@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <div class="app">
@@ -81,16 +81,32 @@
       <!-- 2. eBay listings -->
       <section class="panel">
         <h2 class="panel-title">2 · eBay listings</h2>
-        <label for="ebayUrl" class="field-label">eBay seller / store / search URL</label>
-        <div class="key-row">
-          <input id="ebayUrl" type="url" spellcheck="false" autocapitalize="none" autocorrect="off" inputmode="url"
-                 placeholder="https://www.ebay.com/sch/i.html?_ssn=sellername" />
-          <button id="loadBtn" class="ghost-btn" type="button">Load</button>
-        </div>
-        <p class="hint">
-          Paste a seller's items page, store page, or any eBay search URL. We show the first 10 listing
-          images — pick <strong>up to 5</strong>.
-        </p>
+
+        <label for="pasteBox" class="field-label">Paste eBay page source or image URLs <span class="muted-tag">recommended</span></label>
+        <textarea id="pasteBox" rows="3" spellcheck="false"
+          placeholder="Open the eBay search in your browser, copy the page (or listing image URLs), and paste here."></textarea>
+        <button id="extractBtn" class="ghost-btn" type="button">Extract images</button>
+        <details class="advanced">
+          <summary>How to copy it (eBay blocks servers, so your browser does the fetching)</summary>
+          <p class="hint">
+            <strong>Desktop:</strong> open the eBay search page → right-click → <em>View Page Source</em> →
+            select all (Ctrl/Cmd+A) → copy → paste above.<br>
+            <strong>Mobile:</strong> type <code>view-source:</code> before the eBay URL in the address bar, select
+            all, copy, paste. Or long-press each listing image → <em>Copy image address</em> and paste them one per line.
+          </p>
+        </details>
+
+        <details class="advanced">
+          <summary>Or try loading a URL directly (often blocked by eBay)</summary>
+          <div class="key-row" style="margin-top:10px;">
+            <input id="ebayUrl" type="url" spellcheck="false" autocapitalize="none" autocorrect="off" inputmode="url"
+                   placeholder="https://www.ebay.com/sch/i.html?_nkw=keywords" />
+            <button id="loadBtn" class="ghost-btn" type="button">Load</button>
+          </div>
+          <p class="hint">Server-side fetch — eBay usually 403s this. Use the paste box above if it fails.</p>
+        </details>
+
+        <p class="hint">We show the first 10 images found — pick <strong>up to 5</strong>.</p>
 
         <p id="listingsStatus" class="inline-note hidden"></p>
         <div id="listingsGrid" class="listings-grid hidden"></div>
@@ -129,6 +145,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

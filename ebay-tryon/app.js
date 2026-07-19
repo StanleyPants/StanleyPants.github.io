@@ -36,6 +36,8 @@ const els = {
 
   ebayUrl: $("ebayUrl"),
   loadBtn: $("loadBtn"),
+  pasteBox: $("pasteBox"),
+  extractBtn: $("extractBtn"),
   listingsStatus: $("listingsStatus"),
   listingsGrid: $("listingsGrid"),
   selCount: $("selCount"),
@@ -84,6 +86,7 @@ let running = false;
   setupDropzone();
   els.loadBtn.addEventListener("click", loadListings);
   els.ebayUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") loadListings(); });
+  els.extractBtn.addEventListener("click", extractFromPaste);
   els.generateBtn.addEventListener("click", generate);
 
   if (!savedKey) {
@@ -159,19 +162,12 @@ async function loadListings() {
     if (!data) {
       throw new Error("Proxy didn't return listings — redeploy the Deno proxy (it needs the /ebay endpoint).");
     }
-    listings = Array.isArray(data.listings) ? data.listings : [];
-    selected = [];
-    renderListings();
-    if (!listings.length) {
-      setListingsStatus(
-        data.error
-          ? `No listings found (${data.error}). Try a seller "items" page or an eBay search URL.`
-          : "No listings found on that page. Try a seller's items page or a search URL.",
-        true
-      );
-    } else {
-      setListingsStatus(`Found ${listings.length} listing${listings.length === 1 ? "" : "s"} — select up to ${MAX_SELECT}.`, false);
-    }
+    applyListings(
+      Array.isArray(data.listings) ? data.listings : [],
+      data.error
+        ? `No listings (${data.error}). Use the paste box above — eBay blocks server-side fetches.`
+        : "No listings on that page. Use the paste box above instead."
+    );
   } catch (err) {
     console.error(err);
     setListingsStatus(err.message, true);
@@ -179,6 +175,44 @@ async function loadListings() {
     els.loadBtn.disabled = false;
     refreshGenerate();
   }
+}
+
+// Extract eBay image URLs from pasted page source or a list of URLs (client-side —
+// no eBay fetch, so it sidesteps eBay's server IP blocking).
+function extractFromPaste() {
+  clearError();
+  const text = els.pasteBox.value || "";
+  if (!text.trim()) return showError("Paste eBay page source or image URLs into the box first.");
+  applyListings(extractImagesFromText(text), "No eBay image URLs (i.ebayimg.com) found in what you pasted.");
+}
+
+function extractImagesFromText(text) {
+  const urls = text.match(/https?:\/\/i\.ebayimg\.com\/[^\s"'<>)\\]+/gi) || [];
+  const listings = [];
+  const seen = new Set();
+  for (let src of urls) {
+    if (listings.length >= 10) break;
+    src = src.replace(/^http:/i, "https:").replace(/\/s-l\d+\./i, "/s-l500.");
+    const idM = src.match(/\/g\/([^/]+)/i) || src.match(/\/images\/([^/]+)/i);
+    const key = idM ? idM[1] : src;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    listings.push({ title: "", image: src });
+  }
+  return listings;
+}
+
+// Render a set of {title, image} listings and reset selection.
+function applyListings(list, emptyNote) {
+  listings = Array.isArray(list) ? list : [];
+  selected = [];
+  renderListings();
+  if (!listings.length) {
+    setListingsStatus(emptyNote || "No images found.", true);
+  } else {
+    setListingsStatus(`Found ${listings.length} image${listings.length === 1 ? "" : "s"} — select up to ${MAX_SELECT}.`, false);
+  }
+  refreshGenerate();
 }
 
 function renderListings() {
