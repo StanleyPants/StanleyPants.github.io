@@ -75,6 +75,9 @@ a { color: var(--accent-2); }
 .gen-status.err { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.4); color: #ffc9c9; }
 .gen-status video { width: 100%; border-radius: 8px; margin-top: 8px; background: #000; }
 .or-sep { margin: 18px 0 12px; opacity: 0.8; }
+.slot-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.slot-row .ghost-btn { margin: 0; }
+.slot-row #charBtn, .slot-row #setBtn { flex: 1; }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 .hint.center { text-align: center; }
 
