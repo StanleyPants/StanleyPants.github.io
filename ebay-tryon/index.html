@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <div class="app">
@@ -82,28 +82,29 @@
       <section class="panel">
         <h2 class="panel-title">2 · eBay listings</h2>
 
-        <label for="pasteBox" class="field-label">Paste eBay page source or image URLs <span class="muted-tag">recommended</span></label>
-        <textarea id="pasteBox" rows="3" spellcheck="false"
-          placeholder="Open the eBay search in your browser, copy the page (or listing image URLs), and paste here."></textarea>
-        <button id="extractBtn" class="ghost-btn" type="button">Extract images</button>
-        <details class="advanced">
-          <summary>How to copy it (eBay blocks servers, so your browser does the fetching)</summary>
-          <p class="hint">
-            <strong>Desktop:</strong> open the eBay search page → right-click → <em>View Page Source</em> →
-            select all (Ctrl/Cmd+A) → copy → paste above.<br>
-            <strong>Mobile:</strong> type <code>view-source:</code> before the eBay URL in the address bar, select
-            all, copy, paste. Or long-press each listing image → <em>Copy image address</em> and paste them one per line.
-          </p>
-        </details>
+        <label for="ebayUrl" class="field-label">Search eBay <span class="muted-tag">official API</span></label>
+        <div class="key-row">
+          <input id="ebayUrl" type="text" spellcheck="false" autocapitalize="none" autocorrect="off"
+                 placeholder="keywords (e.g. vintage denim jacket) or a seller/search URL" />
+          <button id="loadBtn" class="ghost-btn" type="button">Search</button>
+        </div>
+        <p class="hint">
+          Type keywords, or paste a seller/search URL. Uses eBay's official Browse API — set
+          <code>EBAY_CLIENT_ID</code> + <code>EBAY_CLIENT_SECRET</code> in your Deno proxy's env vars.
+          (Searching a whole store still needs a keyword.)
+        </p>
 
         <details class="advanced">
-          <summary>Or try loading a URL directly (often blocked by eBay)</summary>
-          <div class="key-row" style="margin-top:10px;">
-            <input id="ebayUrl" type="url" spellcheck="false" autocapitalize="none" autocorrect="off" inputmode="url"
-                   placeholder="https://www.ebay.com/sch/i.html?_nkw=keywords" />
-            <button id="loadBtn" class="ghost-btn" type="button">Load</button>
+          <summary>No eBay API key? Paste page source / image URLs instead</summary>
+          <div style="margin-top:10px;">
+            <textarea id="pasteBox" rows="3" spellcheck="false"
+              placeholder="Paste the eBay page source, or listing image URLs (one per line)."></textarea>
+            <button id="extractBtn" class="ghost-btn" type="button">Extract images</button>
+            <p class="hint">
+              <strong>Desktop:</strong> eBay page → View Page Source → select all → copy → paste.
+              <strong>Mobile:</strong> long-press each image → <em>Copy image address</em> → paste one per line.
+            </p>
           </div>
-          <p class="hint">Server-side fetch — eBay usually 403s this. Use the paste box above if it fails.</p>
         </details>
 
         <p class="hint">We show the first 10 images found — pick <strong>up to 5</strong>.</p>
@@ -145,6 +146,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
