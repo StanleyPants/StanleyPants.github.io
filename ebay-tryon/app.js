@@ -137,9 +137,10 @@ function setVideo(file) {
 // ---- eBay listings --------------------------------------------------------
 async function loadListings() {
   clearError();
-  const url = els.ebayUrl.value.trim();
+  let url = els.ebayUrl.value.trim();
   if (!url) return showError("Paste an eBay seller, store, or search URL first.");
   if (!/ebay\./i.test(url)) return showError("That doesn't look like an eBay URL.");
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url; // tolerate a missing scheme
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it's what fetches eBay listings.");
   }
@@ -150,12 +151,14 @@ async function loadListings() {
 
   try {
     const res = await fetch(`${proxyRoot()}/ebay?url=${encodeURIComponent(url)}`);
-    if (!res.ok) throw new Error(`Proxy returned HTTP ${res.status}`);
     const ct = res.headers.get("content-type") || "";
-    if (!ct.includes("application/json")) {
+    const data = ct.includes("application/json") ? await res.json() : null;
+    if (!res.ok) {
+      throw new Error((data && data.error) ? data.error : `Proxy returned HTTP ${res.status}`);
+    }
+    if (!data) {
       throw new Error("Proxy didn't return listings — redeploy the Deno proxy (it needs the /ebay endpoint).");
     }
-    const data = await res.json();
     listings = Array.isArray(data.listings) ? data.listings : [];
     selected = [];
     renderListings();
