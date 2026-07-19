@@ -68,7 +68,7 @@ const LS_BASE = "decart_api_base";
 const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-on model
 
 let videoFile = null;
-let genImages = [];            // { file, dataUrl } for Seedance generation (max 5)
+let genImages = [];            // { file, dataUrl } for Seedance generation (single image)
 let generating = false;
 let listings = [];             // { title, image }
 let selected = [];             // indices into listings, in click order (max 5)
@@ -171,11 +171,10 @@ function setupImageGen() {
 }
 
 async function addImages(fileList) {
-  const files = Array.from(fileList || []).filter((f) => f.type.startsWith("image/"));
-  for (const f of files) {
-    if (genImages.length >= MAX_SELECT) break;
+  const f = Array.from(fileList || []).find((x) => x.type.startsWith("image/"));
+  if (f) {
     const dataUrl = await readAsDataURL(f);
-    genImages.push({ file: f, dataUrl });
+    genImages = [{ file: f, dataUrl }]; // single image — replaces any previous
   }
   els.imgInput.value = "";
   renderThumbs();
@@ -202,7 +201,7 @@ function renderThumbs() {
 }
 
 function refreshGenBtn() {
-  const ready = !generating && genImages.length >= 1 && genImages.length <= MAX_SELECT &&
+  const ready = !generating && genImages.length === 1 &&
                 els.genPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
   els.genBtn.disabled = !ready;
   els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate source video";
@@ -210,7 +209,7 @@ function refreshGenBtn() {
 
 async function generateSource() {
   clearError();
-  if (!genImages.length) return showError("Add 1–5 images first.");
+  if (!genImages.length) return showError("Add an image first.");
   if (!els.genPrompt.value.trim()) return showError("Write a prompt for the video.");
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
@@ -221,10 +220,10 @@ async function generateSource() {
   setGenStatus(`<div class="spinner"></div><p>Submitting to Seedance 2.0…</p>`, "");
 
   const fast = els.genFast.checked;
-  const model = `bytedance/seedance-2.0${fast ? "/fast" : ""}/reference-to-video`;
+  const model = `bytedance/seedance-2.0${fast ? "/fast" : ""}/image-to-video`;
   const input = {
     prompt: els.genPrompt.value.trim(),
-    image_urls: genImages.map((im) => im.dataUrl),
+    image_url: genImages[0].dataUrl,
     resolution: els.genRes.value,
     aspect_ratio: els.genAsp.value,
     generate_audio: els.genAudio.checked,

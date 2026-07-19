@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
   <div class="app">
@@ -67,18 +67,18 @@
       <section class="panel">
         <h2 class="panel-title">1 · Source video</h2>
 
-        <!-- Generate from images via fal.ai Seedance 2.0 -->
-        <label class="field-label">Generate from images <span class="muted-tag">Seedance 2.0 · fal.ai</span></label>
-        <div id="imgDrop" class="dropzone small" tabindex="0" role="button" aria-label="Add images">
-          <input id="imgInput" type="file" accept="image/*" multiple hidden />
+        <!-- Generate from an image via fal.ai Seedance 2.0 -->
+        <label class="field-label">Generate from an image <span class="muted-tag">Seedance 2.0 · fal.ai</span></label>
+        <div id="imgDrop" class="dropzone small" tabindex="0" role="button" aria-label="Add an image">
+          <input id="imgInput" type="file" accept="image/*" hidden />
           <div class="dz-empty">
             <div class="dz-icon">🖼️</div>
-            <p><strong>Add 1–5 images</strong> or tap to browse</p>
+            <p><strong>Add an image</strong> or tap to browse</p>
           </div>
         </div>
         <div id="imgThumbs" class="img-thumbs"></div>
         <textarea id="genPrompt" rows="2" spellcheck="false"
-          placeholder="Describe the video — reference images as @Image1, @Image2… e.g. “@Image1 turns slowly, full-body, soft studio lighting, camera static.”"></textarea>
+          placeholder="Describe the motion — e.g. “The person turns slowly to face the camera, full-body, soft studio lighting, camera static.”"></textarea>
         <details class="advanced">
           <summary>Video options</summary>
           <div class="opt-grid">
@@ -188,6 +188,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
