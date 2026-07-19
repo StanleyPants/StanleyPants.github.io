@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>eBay Try-On Video Generator · Decart</title>
+  <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">🛍️</span>
+        <div>
+          <h1>eBay Try-On Video Generator</h1>
+          <p class="tagline">One video + up to 5 eBay listings → up to 5 AI videos, powered by
+            <a href="https://platform.decart.ai/" target="_blank" rel="noopener">Decart.ai</a>
+          </p>
+        </div>
+      </div>
+      <button id="settingsToggle" class="ghost-btn" type="button" aria-expanded="false">⚙️ API Settings</button>
+    </header>
+
+    <!-- API settings -->
+    <section id="settingsPanel" class="panel settings hidden" aria-label="API settings">
+      <div class="field">
+        <label for="apiKey">Decart API key</label>
+        <div class="key-row">
+          <input id="apiKey" type="password" autocomplete="off" spellcheck="false"
+                 autocapitalize="none" autocorrect="off" placeholder="Your Decart API key (x-api-key)" />
+          <button id="toggleKey" type="button" class="ghost-btn small" aria-label="Show or hide API key">👁</button>
+        </div>
+        <p class="hint">Stored only in this browser and sent to Decart via the CORS proxy. Shared with the other editor on this site.</p>
+      </div>
+
+      <div class="field">
+        <label for="model">Model</label>
+        <input id="model" list="modelOptions" spellcheck="false"
+               autocapitalize="none" autocorrect="off" autocomplete="off"
+               placeholder="lucy-vton-2" value="lucy-vton-2" />
+        <datalist id="modelOptions">
+          <option value="lucy-vton-2">Lucy VTON 2 — virtual try-on (put the item on the person)</option>
+          <option value="lucy-vton-3">Lucy VTON 3 — virtual try-on (newer)</option>
+          <option value="lucy-clip">Lucy Clip — general reference-guided video edit</option>
+          <option value="lucy-2.5">Lucy 2.5</option>
+          <option value="lucy-restyle-2">Lucy Restyle 2</option>
+        </datalist>
+        <p class="hint">Video model that accepts a <code>reference_image</code>. Try-on (VTON) fits eBay clothing/products best.</p>
+      </div>
+
+      <div class="field">
+        <label for="apiBase">API base URL (proxy)</label>
+        <input id="apiBase" spellcheck="false" type="url"
+               autocapitalize="none" autocorrect="off" autocomplete="off" inputmode="url"
+               placeholder="https://salty-osprey-9099.stanleypants.deno.net/v1"
+               value="https://salty-osprey-9099.stanleypants.deno.net/v1" />
+        <p class="hint">
+          Must be the <strong>Deno proxy</strong> (it also fetches eBay listings/images). Redeploy
+          <code>proxy/decart-proxy.deno.js</code> if listings don't load — it needs the <code>/ebay</code> endpoint.
+        </p>
+      </div>
+    </section>
+
+    <main class="stack">
+      <!-- 1. Source video -->
+      <section class="panel">
+        <h2 class="panel-title">1 · Source video</h2>
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose or drop a video file">
+          <input id="fileInput" type="file" accept="video/*" hidden />
+          <div class="dz-empty">
+            <div class="dz-icon">⬆️</div>
+            <p><strong>Drop a video here</strong> or tap to browse</p>
+            <p class="hint">A short clip of a person works best for try-on.</p>
+          </div>
+          <video id="sourcePreview" class="preview hidden" controls playsinline muted></video>
+        </div>
+        <p id="fileMeta" class="file-meta hidden"></p>
+      </section>
+
+      <!-- 2. eBay listings -->
+      <section class="panel">
+        <h2 class="panel-title">2 · eBay listings</h2>
+        <label for="ebayUrl" class="field-label">eBay seller / store / search URL</label>
+        <div class="key-row">
+          <input id="ebayUrl" type="url" spellcheck="false" autocapitalize="none" autocorrect="off" inputmode="url"
+                 placeholder="https://www.ebay.com/sch/i.html?_ssn=sellername" />
+          <button id="loadBtn" class="ghost-btn" type="button">Load</button>
+        </div>
+        <p class="hint">
+          Paste a seller's items page, store page, or any eBay search URL. We show the first 10 listing
+          images — pick <strong>up to 5</strong>.
+        </p>
+
+        <p id="listingsStatus" class="inline-note hidden"></p>
+        <div id="listingsGrid" class="listings-grid hidden"></div>
+        <p id="selCount" class="sel-count hidden">0 / 5 selected</p>
+
+        <details class="advanced">
+          <summary>Optional prompt</summary>
+          <div class="field">
+            <textarea id="prompt" rows="2"
+              placeholder="e.g. keep the lighting natural (leave blank for pure try-on)"></textarea>
+            <p class="hint">Most try-on jobs need no prompt — the item image is the instruction. Some models ignore it.</p>
+          </div>
+        </details>
+      </section>
+
+      <!-- Generate -->
+      <section class="panel">
+        <button id="generateBtn" class="primary-btn" type="button" disabled>✨ Generate videos</button>
+        <p id="inlineError" class="inline-error hidden" role="alert"></p>
+        <p class="hint center">One output video is generated per selected listing (1–5).</p>
+      </section>
+
+      <!-- 3. Results -->
+      <section class="panel" id="resultsPanel" hidden>
+        <h2 class="panel-title">3 · Results</h2>
+        <div id="outputGrid" class="output-grid"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p><a href="../video-editor/">← Back to the single-video prompt editor</a></p>
+      <p>
+        Client-side demo · your Decart key stays in this browser and is sent as <code>x-api-key</code>
+        through a thin CORS proxy that also fetches eBay listing images.
+      </p>
+    </footer>
+  </div>
+
+  <script src="app.js?v=1"></script>
+</body>
+</html>

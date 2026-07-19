@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Video Editor · Decart</title>
   <meta name="description" content="Upload a video and edit it with AI prompts using the Decart.ai API." />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
   <div class="app">
@@ -36,7 +36,7 @@
         </div>
         <p class="hint">
           Get a key at <a href="https://platform.decart.ai/" target="_blank" rel="noopener">platform.decart.ai</a>.
-          It is stored only in this browser (localStorage) and sent directly to Decart.
+          It is stored only in this browser (localStorage) and sent to Decart via the CORS proxy.
           <strong>Never embed a production key in a public site.</strong>
         </p>
       </div>
@@ -45,21 +45,24 @@
         <label for="model">Model</label>
         <input id="model" list="modelOptions" spellcheck="false"
                autocapitalize="none" autocorrect="off" autocomplete="off"
-               placeholder="lucy-fast-v2v" value="lucy-fast-v2v" />
+               placeholder="lucy-latest" value="lucy-latest" />
         <datalist id="modelOptions">
-          <option value="lucy-fast-v2v">Lucy Fast — fastest video-to-video edit</option>
-          <option value="lucy-2-v2v">Lucy 2 — higher quality video-to-video</option>
-          <option value="lucy-pro-v2v">Lucy Pro — best quality (if available on your plan)</option>
+          <option value="lucy-latest">Lucy Latest — newest video edit model (server-resolved)</option>
+          <option value="lucy-clip">Lucy Clip — general video-to-video edit</option>
+          <option value="lucy-2.5">Lucy 2.5</option>
+          <option value="lucy-2.1">Lucy 2.1</option>
+          <option value="lucy-restyle-2">Lucy Restyle 2 — restyle footage</option>
+          <option value="lucy-clip-latest">Lucy Clip Latest</option>
         </datalist>
-        <p class="hint">Video-to-video edit model slug. Pick one or type the exact slug from your Decart dashboard.</p>
+        <p class="hint">Video-to-video edit model slug (from Decart's model registry). Pick one or type the exact slug from your Decart dashboard.</p>
       </div>
 
       <div class="field">
         <label for="apiBase">API base URL</label>
         <input id="apiBase" spellcheck="false" type="url"
                autocapitalize="none" autocorrect="off" autocomplete="off" inputmode="url"
-               placeholder="https://decart-proxy.nitzan90265.workers.dev/v1"
-               value="https://decart-proxy.nitzan90265.workers.dev/v1" />
+               placeholder="https://salty-osprey-9099.stanleypants.deno.net/v1"
+               value="https://salty-osprey-9099.stanleypants.deno.net/v1" />
         <p class="hint">
           Defaults to the CORS proxy (needed because Decart sends no CORS headers).
           To call Decart directly instead, use <code>https://api.decart.ai/v1</code>, or point this
@@ -142,13 +145,15 @@
     </main>
 
     <footer class="footer">
+      <p><a href="../ebay-tryon/">🛍️ Try the eBay try-on version →</a> (make up to 5 videos from eBay listings)</p>
       <p>
-        Client-side demo · calls the Decart Queue API directly from your browser.
-        Requests go to <code>api.decart.ai</code>. Your key and video never touch any other server.
+        Client-side demo · calls the Decart Queue API from your browser through a thin CORS proxy
+        (no key stored server-side). Your Decart key stays in this browser and is sent as
+        <code>x-api-key</code> with each request.
       </p>
     </footer>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

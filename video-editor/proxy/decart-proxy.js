@@ -1,31 +1,26 @@
 /**
  * Decart CORS proxy — Cloudflare Worker.
  *
- * Purpose: a browser page served from GitHub Pages can't call https://api.decart.ai
- * directly because that API doesn't return CORS headers. This Worker forwards every
- * request through to Decart unchanged and adds the CORS headers the browser needs.
+ * A browser page on GitHub Pages can't call https://api.decart.ai directly (no CORS
+ * headers). This Worker forwards the request to Decart and adds the CORS headers the
+ * browser needs. It holds NO secret — your Decart key is sent from the browser as
+ * x-api-key and passes through.
  *
- * It holds NO secret. Your Decart key is still sent from the browser (the app's
- * "API key" field) as the x-api-key header and simply passes through — so there is
- * nothing here to leak, and callers must bring their own valid key.
+ * It forwards a CLEAN, curl-like request: only x-api-key + content-type reach Decart.
+ * Browser-only headers (Origin, Referer, Sec-Fetch-*, User-Agent) are dropped because
+ * Decart's edge rejects them with a 405. The body is buffered so it is sent with a
+ * Content-Length instead of chunked. EVERYTHING runs inside try/catch, so any failure
+ * still returns CORS headers (you get a real error, never an opaque "Failed to fetch").
  *
- * Deploy (dashboard, no CLI needed):
- *   1. Sign in at https://dash.cloudflare.com  (free plan is fine)
- *   2. Workers & Pages  ->  Create  ->  Create Worker
- *   3. Name it (e.g. "decart-proxy"), Deploy, then "Edit code"
- *   4. Replace the sample with this whole file, then Deploy
- *   5. Copy the URL, e.g. https://decart-proxy.<you>.workers.dev
- *   6. In the video editor's  Settings -> API base URL  put:
- *        https://decart-proxy.<you>.workers.dev/v1
+ * Deploy: paste this whole file into your Cloudflare Worker and Deploy.
+ * App "API base URL": https://<your-worker>.workers.dev/v1
  *
- * Locked to your site by default: only requests from ALLOW_ORIGIN get CORS access.
- * Set it to "*" to allow any origin, or add more origins to the list.
+ * Locked to your site via ALLOWED_ORIGINS. Use ["*"] to allow any origin.
  */
 
-// Origins allowed to use this proxy from a browser. Add more if you host the app elsewhere
-// (e.g. "http://localhost:8000" for local testing). Use "*" to allow everything.
 const ALLOWED_ORIGINS = ["https://stanleypants.github.io"];
 const UPSTREAM = "https://api.decart.ai";
+const FORWARD_HEADERS = ["x-api-key", "content-type", "accept"];
 
 export default {
   async fetch(request) {
@@ -37,26 +32,47 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
-    const url = new URL(request.url);
-    const target = UPSTREAM + url.pathname + url.search;
+    const reqUrl = new URL(request.url);
 
-    // Forward method, headers (incl. x-api-key), and body verbatim.
-    const upstreamReq = new Request(target, request);
+    // Version marker — visit /__whoami to confirm which code is deployed.
+    if (reqUrl.pathname === "/__whoami") {
+      return new Response("decart-proxy v5 (clean-headers)", {
+        status: 200,
+        headers: { "content-type": "text/plain", ...cors },
+      });
+    }
 
-    let resp;
     try {
-      resp = await fetch(upstreamReq);
+      const url = reqUrl;
+      const target = UPSTREAM + url.pathname + url.search;
+
+      // Only forward the headers Decart needs (drop browser Origin/Referer/Sec-Fetch-*).
+      const headers = new Headers();
+      for (const name of FORWARD_HEADERS) {
+        const v = request.headers.get(name);
+        if (v) headers.set(name, v);
+      }
+      if (!headers.has("accept")) headers.set("accept", "*/*");
+
+      // Buffer the body so it is sent with Content-Length (curl-like), not chunked.
+      let body;
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        body = await request.arrayBuffer();
+      }
+
+      const resp = await fetch(target, { method: request.method, headers, body });
+
+      // Copy the upstream response and attach CORS (works for JSON and binary video).
+      const out = new Response(resp.body, resp);
+      for (const [k, v] of Object.entries(cors)) out.headers.set(k, v);
+      return out;
     } catch (err) {
+      // Always return CORS headers, even on failure, so the browser sees the error.
       return new Response(
-        JSON.stringify({ error: "Proxy could not reach Decart", detail: String(err) }),
+        JSON.stringify({ error: "Proxy error", detail: String((err && err.stack) || err) }),
         { status: 502, headers: { "content-type": "application/json", ...cors } }
       );
     }
-
-    // Copy the upstream response and attach CORS headers (works for JSON and binary video).
-    const out = new Response(resp.body, resp);
-    for (const [k, v] of Object.entries(cors)) out.headers.set(k, v);
-    return out;
   },
 };
 
