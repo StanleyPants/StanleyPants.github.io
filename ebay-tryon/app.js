@@ -31,8 +31,20 @@ const els = {
   dropzone: $("dropzone"),
   fileInput: $("fileInput"),
   sourcePreview: $("sourcePreview"),
-  dzEmpty: document.querySelector(".dz-empty"),
+  dzEmpty: document.querySelector("#dropzone .dz-empty"),
   fileMeta: $("fileMeta"),
+
+  imgDrop: $("imgDrop"),
+  imgInput: $("imgInput"),
+  imgThumbs: $("imgThumbs"),
+  genPrompt: $("genPrompt"),
+  genRes: $("genRes"),
+  genDur: $("genDur"),
+  genAsp: $("genAsp"),
+  genAudio: $("genAudio"),
+  genFast: $("genFast"),
+  genBtn: $("genBtn"),
+  genStatus: $("genStatus"),
 
   ebayUrl: $("ebayUrl"),
   sellerInput: $("sellerInput"),
@@ -56,6 +68,8 @@ const LS_BASE = "decart_api_base";
 const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-on model
 
 let videoFile = null;
+let genImages = [];            // { file, dataUrl } for Seedance generation (max 5)
+let generating = false;
 let listings = [];             // { title, image }
 let selected = [];             // indices into listings, in click order (max 5)
 let running = false;
@@ -85,6 +99,7 @@ let running = false;
   });
 
   setupDropzone();
+  setupImageGen();
   els.loadBtn.addEventListener("click", loadListings);
   els.ebayUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") loadListings(); });
   els.extractBtn.addEventListener("click", extractFromPaste);
@@ -132,10 +147,157 @@ function setVideo(file) {
   els.sourcePreview.src = URL.createObjectURL(file);
   els.sourcePreview.classList.remove("hidden");
   els.dzEmpty.classList.add("hidden");
-  els.fileMeta.textContent = `${file.name} · ${formatBytes(file.size)}`;
+  els.fileMeta.textContent = `${file.name || "video"} · ${formatBytes(file.size)}`;
   els.fileMeta.classList.remove("hidden");
-  clearError();
   refreshGenerate();
+}
+
+// ---- Source-video generation (fal.ai Seedance 2.0) ------------------------
+function setupImageGen() {
+  const dz = els.imgDrop;
+  dz.addEventListener("click", () => els.imgInput.click());
+  dz.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.imgInput.click(); }
+  });
+  els.imgInput.addEventListener("change", (e) => addImages(e.target.files));
+  ["dragenter", "dragover"].forEach((ev) =>
+    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("dragover"); }));
+  ["dragleave", "drop"].forEach((ev) =>
+    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("dragover"); }));
+  dz.addEventListener("drop", (e) => { e.preventDefault(); addImages(e.dataTransfer.files); });
+
+  els.genPrompt.addEventListener("input", refreshGenBtn);
+  els.genBtn.addEventListener("click", generateSource);
+}
+
+async function addImages(fileList) {
+  const files = Array.from(fileList || []).filter((f) => f.type.startsWith("image/"));
+  for (const f of files) {
+    if (genImages.length >= MAX_SELECT) break;
+    const dataUrl = await readAsDataURL(f);
+    genImages.push({ file: f, dataUrl });
+  }
+  els.imgInput.value = "";
+  renderThumbs();
+  refreshGenBtn();
+}
+
+function renderThumbs() {
+  els.imgThumbs.innerHTML = "";
+  genImages.forEach((im, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "img-thumb";
+    const img = document.createElement("img");
+    img.src = im.dataUrl;
+    img.alt = `Image ${i + 1}`;
+    const rm = document.createElement("button");
+    rm.className = "rm";
+    rm.type = "button";
+    rm.textContent = "×";
+    rm.title = "Remove";
+    rm.addEventListener("click", () => { genImages.splice(i, 1); renderThumbs(); refreshGenBtn(); });
+    wrap.append(img, rm);
+    els.imgThumbs.appendChild(wrap);
+  });
+}
+
+function refreshGenBtn() {
+  const ready = !generating && genImages.length >= 1 && genImages.length <= MAX_SELECT &&
+                els.genPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
+  els.genBtn.disabled = !ready;
+  els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate source video";
+}
+
+async function generateSource() {
+  clearError();
+  if (!genImages.length) return showError("Add 1–5 images first.");
+  if (!els.genPrompt.value.trim()) return showError("Write a prompt for the video.");
+  if (/api\.decart\.ai/i.test(apiBase())) {
+    return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
+  }
+
+  generating = true;
+  refreshGenBtn();
+  setGenStatus(`<div class="spinner"></div><p>Submitting to Seedance 2.0…</p>`, "");
+
+  const fast = els.genFast.checked;
+  const model = `bytedance/seedance-2.0${fast ? "/fast" : ""}/reference-to-video`;
+  const input = {
+    prompt: els.genPrompt.value.trim(),
+    image_urls: genImages.map((im) => im.dataUrl),
+    resolution: els.genRes.value,
+    aspect_ratio: els.genAsp.value,
+    generate_audio: els.genAudio.checked,
+  };
+  if (els.genDur.value !== "auto") input.duration = els.genDur.value;
+
+  try {
+    // 1. Submit to fal's queue via the proxy.
+    const submitRes = await fetch(`${proxyRoot()}/fal/${model}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const submit = await submitRes.json().catch(() => ({}));
+    if (!submitRes.ok) throw new Error(submit.error || submit.detail || `Submit failed (HTTP ${submitRes.status})`);
+    const reqId = submit.request_id;
+    const statusUrl = falToProxy(submit.status_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}/status`;
+    const resultUrl = falToProxy(submit.response_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}`;
+
+    // 2. Poll until done (video gen can take a while).
+    setGenStatus(`<div class="spinner"></div><p>Generating video… this can take a minute or two.</p>`, "");
+    const started = Date.now();
+    while (true) {
+      if (Date.now() - started > 15 * 60 * 1000) throw new Error("Timed out after 15 minutes.");
+      await sleep(4000);
+      const stRes = await fetch(statusUrl);
+      const st = await stRes.json().catch(() => ({}));
+      const status = String(st.status || "").toUpperCase();
+      if (status === "COMPLETED") break;
+      if (status === "FAILED" || status === "ERROR" || status === "CANCELLED") {
+        throw new Error("Generation " + status.toLowerCase() + (st.error ? `: ${st.error}` : ""));
+      }
+      setGenStatus(`<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${Math.round((Date.now() - started) / 1000)}s)</p>`, "");
+    }
+
+    // 3. Fetch the result and pull the video into the source slot.
+    const resRes = await fetch(resultUrl);
+    const result = await resRes.json().catch(() => ({}));
+    const videoUrl = result.video && result.video.url;
+    if (!videoUrl) throw new Error("No video URL in the result.");
+
+    setGenStatus(`<div class="spinner"></div><p>Downloading generated video…</p>`, "");
+    const vidRes = await fetch(`${proxyRoot()}/img?url=${encodeURIComponent(videoUrl)}`);
+    if (!vidRes.ok) throw new Error(`Couldn't download the generated video (HTTP ${vidRes.status}).`);
+    const blob = await vidRes.blob();
+    const file = new File([blob], "seedance-source.mp4", { type: blob.type || "video/mp4" });
+
+    setVideo(file);
+    setGenStatus(`✅ Generated — set as your source video below. <video src="${videoUrl}" controls playsinline></video>`, "ok");
+  } catch (err) {
+    console.error(err);
+    setGenStatus("⚠️ " + escapeHtml(err.message), "err");
+  } finally {
+    generating = false;
+    refreshGenBtn();
+  }
+}
+
+function setGenStatus(html, cls) {
+  els.genStatus.className = "gen-status" + (cls ? " " + cls : "");
+  els.genStatus.innerHTML = html;
+  els.genStatus.classList.remove("hidden");
+}
+function falToProxy(u) {
+  return u ? String(u).replace(/^https:\/\/queue\.fal\.run\//i, `${proxyRoot()}/fal/`) : null;
+}
+function readAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
 }
 
 // ---- eBay listings --------------------------------------------------------

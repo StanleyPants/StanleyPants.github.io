@@ -54,7 +54,27 @@ a { color: var(--accent-2); }
 .field label, .field-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
 .muted-tag { font-weight: 500; font-size: 11px; color: var(--accent-2); background: rgba(34,211,238,0.1); border: 1px solid rgba(34,211,238,0.3); border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
 #extractBtn { margin-top: 10px; }
-#pasteBox { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+#pasteBox, #genPrompt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+#genPrompt { margin-top: 10px; }
+
+/* Seedance image generation */
+.dropzone.small { min-height: 96px; }
+.dropzone.small .dz-empty { padding: 14px; }
+.dropzone.small .dz-icon { font-size: 22px; }
+.img-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.img-thumbs:empty { display: none; }
+.img-thumb { position: relative; width: 72px; height: 72px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #11151f; }
+.img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-thumb .rm { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: none; background: rgba(0,0,0,0.65); color: #fff; font-size: 12px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.opt-grid { display: flex; flex-wrap: wrap; gap: 12px 16px; margin-top: 12px; align-items: center; }
+.opt-grid label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.opt-grid select { background: #0f131d; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font-size: 12px; }
+.opt-grid label.chk { gap: 5px; }
+#genBtn { margin-top: 12px; width: 100%; }
+.gen-status { margin-top: 12px; padding: 12px; border-radius: 10px; background: rgba(124,92,255,0.1); border: 1px solid rgba(124,92,255,0.3); font-size: 13px; text-align: center; }
+.gen-status.err { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.4); color: #ffc9c9; }
+.gen-status video { width: 100%; border-radius: 8px; margin-top: 8px; background: #000; }
+.or-sep { margin: 18px 0 12px; opacity: 0.8; }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 .hint.center { text-align: center; }
 
