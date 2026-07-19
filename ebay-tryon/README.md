@@ -6,19 +6,19 @@ the `reference_image`, via [Decart.ai](https://platform.decart.ai/)'s try-on mod
 
 **Live:** `https://stanleypants.github.io/ebay-tryon/`
 
-## Optional step 0: generate the source video from images (fal.ai Seedance 2.0)
+## Optional step 0: generate the source video from an image (fal.ai Seedance 2.0)
 
-Instead of uploading a video, you can upload **1–5 images** + a prompt and generate the source video
-with **Seedance 2.0 reference-to-video** (via [fal.ai](https://fal.ai)). The generated video is
-downloaded and used as the source video for the try-on step. To enable it:
+Instead of uploading a video, you can upload **one image** + a prompt and generate the source video
+with **Seedance 2.0 image-to-video** (via [fal.ai](https://fal.ai)). The generated video is downloaded
+and used as the source video for the try-on step. To enable it:
 
 1. Get a fal.ai API key from [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys).
 2. In your Deno Deploy project → **Settings → Environment Variables**, add `FAL_KEY` = your fal key.
 3. Redeploy the proxy. The proxy forwards to `queue.fal.run` with the key injected (never exposed to
-   the browser); images are sent as data URIs, so no separate upload step.
+   the browser); the image is sent as a data URI, so no separate upload step.
 
-In the prompt, reference the images as `@Image1`, `@Image2`, … (e.g. *"@Image1 turns slowly, full-body,
-soft studio lighting"*). Options: resolution, duration, aspect ratio, audio, and a fast/cheaper tier.
+The prompt describes the motion (e.g. *"The person turns slowly to face the camera, full-body, soft
+studio lighting"*). Options: resolution, duration, aspect ratio, audio, and a fast/cheaper tier.
 
 ## How it works
 
