@@ -34,6 +34,12 @@ const els = {
   dzEmpty: document.querySelector("#dropzone .dz-empty"),
   fileMeta: $("fileMeta"),
 
+  charPrompt: $("charPrompt"),
+  charModel: $("charModel"),
+  charSize: $("charSize"),
+  charBtn: $("charBtn"),
+  charStatus: $("charStatus"),
+
   imgDrop: $("imgDrop"),
   imgInput: $("imgInput"),
   imgThumbs: $("imgThumbs"),
@@ -99,6 +105,7 @@ let running = false;
   });
 
   setupDropzone();
+  setupCharacter();
   setupImageGen();
   els.loadBtn.addEventListener("click", loadListings);
   els.ebayUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") loadListings(); });
@@ -150,6 +157,52 @@ function setVideo(file) {
   els.fileMeta.textContent = `${file.name || "video"} · ${formatBytes(file.size)}`;
   els.fileMeta.classList.remove("hidden");
   refreshGenerate();
+}
+
+// ---- Character creation (fal.ai image model) ------------------------------
+function setupCharacter() {
+  els.charPrompt.addEventListener("input", refreshCharBtn);
+  els.charBtn.addEventListener("click", createCharacter);
+}
+
+function refreshCharBtn() {
+  const ready = !generating && els.charPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
+  els.charBtn.disabled = !ready;
+  els.charBtn.textContent = generating ? "…" : "🧑‍🎨 Create character";
+}
+
+async function createCharacter() {
+  clearError();
+  if (!els.charPrompt.value.trim()) return showError("Describe the character first.");
+  if (/api\.decart\.ai/i.test(apiBase())) {
+    return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
+  }
+
+  generating = true;
+  refreshCharBtn(); refreshGenBtn();
+  setStatusEl(els.charStatus, `<div class="spinner"></div><p>Creating character…</p>`, "");
+
+  const model = els.charModel.value;
+  const input = { prompt: els.charPrompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
+
+  try {
+    const result = await falRun(model, input, (status, secs) =>
+      setStatusEl(els.charStatus, `<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${secs}s)</p>`, ""));
+    const imageUrl = result.images && result.images[0] && result.images[0].url;
+    if (!imageUrl) throw new Error("No image URL in the result.");
+
+    // Use the generated image as the input for the Seedance animate step (fal accepts the URL directly).
+    genImages = [{ file: null, dataUrl: imageUrl }];
+    renderThumbs();
+    refreshGenBtn();
+    setStatusEl(els.charStatus, `✅ Character created — added below. <img src="${imageUrl}" alt="character" style="max-width:120px;border-radius:8px;margin-top:8px;display:block;" />`, "ok");
+  } catch (err) {
+    console.error(err);
+    setStatusEl(els.charStatus, "⚠️ " + escapeHtml(err.message), "err");
+  } finally {
+    generating = false;
+    refreshCharBtn(); refreshGenBtn();
+  }
 }
 
 // ---- Source-video generation (fal.ai Seedance 2.0) ------------------------
@@ -231,37 +284,8 @@ async function generateSource() {
   if (els.genDur.value !== "auto") input.duration = els.genDur.value;
 
   try {
-    // 1. Submit to fal's queue via the proxy.
-    const submitRes = await fetch(`${proxyRoot()}/fal/${model}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    const submit = await submitRes.json().catch(() => ({}));
-    if (!submitRes.ok) throw new Error(submit.error || submit.detail || `Submit failed (HTTP ${submitRes.status})`);
-    const reqId = submit.request_id;
-    const statusUrl = falToProxy(submit.status_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}/status`;
-    const resultUrl = falToProxy(submit.response_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}`;
-
-    // 2. Poll until done (video gen can take a while).
-    setGenStatus(`<div class="spinner"></div><p>Generating video… this can take a minute or two.</p>`, "");
-    const started = Date.now();
-    while (true) {
-      if (Date.now() - started > 15 * 60 * 1000) throw new Error("Timed out after 15 minutes.");
-      await sleep(4000);
-      const stRes = await fetch(statusUrl);
-      const st = await stRes.json().catch(() => ({}));
-      const status = String(st.status || "").toUpperCase();
-      if (status === "COMPLETED") break;
-      if (status === "FAILED" || status === "ERROR" || status === "CANCELLED") {
-        throw new Error("Generation " + status.toLowerCase() + (st.error ? `: ${st.error}` : ""));
-      }
-      setGenStatus(`<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${Math.round((Date.now() - started) / 1000)}s)</p>`, "");
-    }
-
-    // 3. Fetch the result and pull the video into the source slot.
-    const resRes = await fetch(resultUrl);
-    const result = await resRes.json().catch(() => ({}));
+    const result = await falRun(model, input, (status, secs) =>
+      setGenStatus(`<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering video" : "In queue"}… (${secs}s)</p>`, ""));
     const videoUrl = result.video && result.video.url;
     if (!videoUrl) throw new Error("No video URL in the result.");
 
@@ -278,15 +302,45 @@ async function generateSource() {
     setGenStatus("⚠️ " + escapeHtml(err.message), "err");
   } finally {
     generating = false;
-    refreshGenBtn();
+    refreshGenBtn(); refreshCharBtn();
   }
 }
 
-function setGenStatus(html, cls) {
-  els.genStatus.className = "gen-status" + (cls ? " " + cls : "");
-  els.genStatus.innerHTML = html;
-  els.genStatus.classList.remove("hidden");
+// Submit an input to a fal.ai model via the proxy queue, poll to completion,
+// and return the result JSON. onStatus(status, seconds) is called while polling.
+async function falRun(model, input, onStatus) {
+  const submitRes = await fetch(`${proxyRoot()}/fal/${model}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const submit = await submitRes.json().catch(() => ({}));
+  if (!submitRes.ok) throw new Error(submit.error || submit.detail || `Submit failed (HTTP ${submitRes.status})`);
+  const reqId = submit.request_id;
+  const statusUrl = falToProxy(submit.status_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}/status`;
+  const resultUrl = falToProxy(submit.response_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}`;
+
+  const started = Date.now();
+  while (true) {
+    if (Date.now() - started > 15 * 60 * 1000) throw new Error("Timed out after 15 minutes.");
+    await sleep(3000);
+    const st = await (await fetch(statusUrl)).json().catch(() => ({}));
+    const status = String(st.status || "").toUpperCase();
+    if (status === "COMPLETED") break;
+    if (["FAILED", "ERROR", "CANCELLED"].includes(status)) {
+      throw new Error("fal " + status.toLowerCase() + (st.error ? `: ${st.error}` : ""));
+    }
+    if (onStatus) onStatus(status, Math.round((Date.now() - started) / 1000));
+  }
+  return await (await fetch(resultUrl)).json().catch(() => ({}));
 }
+
+function setStatusEl(el, html, cls) {
+  el.className = "gen-status" + (cls ? " " + cls : "");
+  el.innerHTML = html;
+  el.classList.remove("hidden");
+}
+function setGenStatus(html, cls) { setStatusEl(els.genStatus, html, cls); }
 function falToProxy(u) {
   return u ? String(u).replace(/^https:\/\/queue\.fal\.run\//i, `${proxyRoot()}/fal/`) : null;
 }

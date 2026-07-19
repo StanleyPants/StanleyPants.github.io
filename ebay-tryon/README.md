@@ -6,6 +6,17 @@ the `reference_image`, via [Decart.ai](https://platform.decart.ai/)'s try-on mod
 
 **Live:** `https://stanleypants.github.io/ebay-tryon/`
 
+## Optional step -1: create a character (fal.ai image model)
+
+You can start from **text only**: describe a character and generate a character image with a fal.ai
+image model (FLUX.1 [dev]/[schnell] or FLUX 2 Turbo, selectable). The generated image auto-fills the
+"Animate an image" step below, so the full chain is:
+
+**describe character → character image → source video (Seedance) → pick eBay items → try-on videos.**
+
+Uses the same `FAL_KEY` and `/fal` proxy passthrough as the video step — no extra setup. (OpenArt has
+no public API, so fal is used for the image generation.)
+
 ## Optional step 0: generate the source video from an image (fal.ai Seedance 2.0)
 
 Instead of uploading a video, you can upload **one image** + a prompt and generate the source video

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
   <div class="app">
@@ -65,10 +65,39 @@
     <main class="stack">
       <!-- 1. Source video -->
       <section class="panel">
-        <h2 class="panel-title">1 · Source video</h2>
+        <h2 class="panel-title">1 · Create source video</h2>
 
-        <!-- Generate from an image via fal.ai Seedance 2.0 -->
-        <label class="field-label">Generate from an image <span class="muted-tag">Seedance 2.0 · fal.ai</span></label>
+        <!-- Create a character (fal.ai image model) -->
+        <label class="field-label">Create a character <span class="muted-tag">fal.ai image</span></label>
+        <textarea id="charPrompt" rows="2" spellcheck="false"
+          placeholder="Describe the character — e.g. “Full-body studio photo of a young woman with curly red hair, plain white t-shirt and blue jeans, neutral grey background, front-facing, soft lighting.”"></textarea>
+        <details class="advanced">
+          <summary>Character options</summary>
+          <div class="opt-grid">
+            <label>Model
+              <select id="charModel">
+                <option value="fal-ai/flux/dev">FLUX.1 [dev] — quality</option>
+                <option value="fal-ai/flux/schnell">FLUX.1 [schnell] — fast/cheap</option>
+                <option value="fal-ai/flux-2/turbo">FLUX 2 Turbo</option>
+              </select>
+            </label>
+            <label>Size
+              <select id="charSize">
+                <option value="portrait_4_3">Portrait 4:3</option>
+                <option value="portrait_16_9">Portrait tall</option>
+                <option value="square_hd">Square</option>
+                <option value="landscape_4_3">Landscape 4:3</option>
+              </select>
+            </label>
+          </div>
+        </details>
+        <button id="charBtn" class="ghost-btn" type="button" disabled>🧑‍🎨 Create character</button>
+        <p id="charStatus" class="gen-status hidden"></p>
+
+        <p class="hint center or-sep">— then animate it into a video —</p>
+
+        <!-- Generate video from the image via fal.ai Seedance 2.0 -->
+        <label class="field-label">Animate an image <span class="muted-tag">Seedance 2.0 · fal.ai</span></label>
         <div id="imgDrop" class="dropzone small" tabindex="0" role="button" aria-label="Add an image">
           <input id="imgInput" type="file" accept="image/*" hidden />
           <div class="dz-empty">
@@ -188,6 +217,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=7"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
