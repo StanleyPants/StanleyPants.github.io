@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=10" />
 </head>
 <body>
   <div class="app">
@@ -71,6 +71,12 @@
         <label class="field-label">1a · Character image <span class="muted-tag">fal.ai image</span></label>
         <textarea id="charPrompt" rows="2" spellcheck="false"
           placeholder="Describe the character — e.g. “Full-body studio photo of a young woman, curly red hair, plain white t-shirt and blue jeans, front-facing, soft lighting.”"></textarea>
+        <div class="slot-row">
+          <span class="hint" style="margin:0;flex:1;">Reference photo (optional) — keeps a specific face/person</span>
+          <button id="charRefBtn" class="ghost-btn small" type="button">📎 Reference</button>
+          <input id="charRefFile" type="file" accept="image/*" hidden />
+        </div>
+        <div id="charRefThumb" class="img-thumbs"></div>
         <div class="slot-row">
           <button id="charBtn" class="ghost-btn" type="button" disabled>🧑‍🎨 Create character</button>
           <button id="charUploadBtn" class="ghost-btn small" type="button">⬆ Upload</button>
@@ -227,6 +233,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

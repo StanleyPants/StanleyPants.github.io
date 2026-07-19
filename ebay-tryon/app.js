@@ -42,6 +42,9 @@ const els = {
   charFile: $("charFile"),
   charThumb: $("charThumb"),
   charStatus: $("charStatus"),
+  charRefBtn: $("charRefBtn"),
+  charRefFile: $("charRefFile"),
+  charRefThumb: $("charRefThumb"),
 
   setPrompt: $("setPrompt"),
   setBtn: $("setBtn"),
@@ -82,6 +85,7 @@ const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-o
 
 let videoFile = null;
 let charImgSrc = null;         // character image (data URI or fal URL)
+let charRefSrc = null;         // optional reference photo → identity-preserving generation
 let setImgSrc = null;          // setting image (optional)
 let generating = false;
 let listings = [];             // { title, image }
@@ -173,6 +177,13 @@ function setupSourceImages() {
   els.charBtn.addEventListener("click", () => createImage("character"));
   els.charUploadBtn.addEventListener("click", () => els.charFile.click());
   els.charFile.addEventListener("change", (e) => uploadInto("character", e.target.files));
+  // Character reference photo (identity preservation)
+  els.charRefBtn.addEventListener("click", () => els.charRefFile.click());
+  els.charRefFile.addEventListener("change", async (e) => {
+    const f = Array.from(e.target.files || []).find((x) => x.type.startsWith("image/"));
+    if (f) { charRefSrc = await readAsDataURL(f); renderCharRef(); }
+    els.charRefFile.value = "";
+  });
   // Setting slot
   els.setPrompt.addEventListener("input", refreshImgBtns);
   els.setBtn.addEventListener("click", () => createImage("setting"));
@@ -220,10 +231,18 @@ async function createImage(kind) {
 
   generating = true;
   refreshImgBtns(); refreshGenBtn();
-  setStatusEl(s.status, `<div class="spinner"></div><p>Creating ${s.label}…</p>`, "");
+  const usingRef = kind === "character" && charRefSrc;
+  setStatusEl(s.status, `<div class="spinner"></div><p>Creating ${s.label}${usingRef ? " from reference" : ""}…</p>`, "");
 
-  const model = els.charModel.value;
-  const input = { prompt: s.prompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
+  // With a reference photo, use FLUX Kontext (identity-preserving); otherwise plain text-to-image.
+  let model, input;
+  if (usingRef) {
+    model = "fal-ai/flux-pro/kontext";
+    input = { prompt: s.prompt.value.trim(), image_url: charRefSrc, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
+  } else {
+    model = els.charModel.value;
+    input = { prompt: s.prompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
+  }
   try {
     const result = await falRun(model, input, (status, secs) =>
       setStatusEl(s.status, `<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${secs}s)</p>`, ""));
@@ -231,7 +250,7 @@ async function createImage(kind) {
     if (!imageUrl) throw new Error("No image URL in the result.");
     s.set(imageUrl); // fal image URL — Seedance accepts it directly
     renderSlot(kind);
-    setStatusEl(s.status, `✅ ${cap(s.label)} created.`, "ok");
+    setStatusEl(s.status, `✅ ${cap(s.label)} created${usingRef ? " (from reference)" : ""}.`, "ok");
   } catch (err) {
     console.error(err);
     setStatusEl(s.status, "⚠️ " + escapeHtml(err.message), "err");
@@ -316,6 +335,25 @@ async function generateSource() {
 }
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function renderCharRef() {
+  els.charRefThumb.innerHTML = "";
+  if (!charRefSrc) return;
+  const wrap = document.createElement("div");
+  wrap.className = "img-thumb";
+  const img = document.createElement("img");
+  img.src = charRefSrc; img.alt = "reference";
+  const rm = document.createElement("button");
+  rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Remove reference";
+  rm.addEventListener("click", () => { charRefSrc = null; els.charRefThumb.innerHTML = ""; });
+  wrap.append(img, rm);
+  els.charRefThumb.appendChild(wrap);
+}
+
+// Map a FLUX text-to-image image_size to the nearest Kontext aspect_ratio.
+function sizeToAspect(size) {
+  return { portrait_4_3: "3:4", portrait_16_9: "9:16", square_hd: "1:1", landscape_4_3: "4:3" }[size] || "3:4";
+}
 
 // Submit an input to a fal.ai model via the proxy queue, poll to completion,
 // and return the result JSON. onStatus(status, seconds) is called while polling.
