@@ -140,20 +140,18 @@ function setVideo(file) {
 // ---- eBay listings --------------------------------------------------------
 async function loadListings() {
   clearError();
-  let url = els.ebayUrl.value.trim();
-  if (!url) return showError("Paste an eBay seller, store, or search URL first.");
-  if (!/ebay\./i.test(url)) return showError("That doesn't look like an eBay URL.");
-  if (!/^https?:\/\//i.test(url)) url = "https://" + url; // tolerate a missing scheme
+  const query = els.ebayUrl.value.trim();
+  if (!query) return showError("Enter keywords or an eBay search/seller URL.");
   if (/api\.decart\.ai/i.test(apiBase())) {
-    return showError("Set the API base URL to your Deno proxy (Settings) — it's what fetches eBay listings.");
+    return showError("Set the API base URL to your Deno proxy (Settings) — it's what queries eBay.");
   }
 
-  setListingsStatus("Loading listings from eBay…", false);
+  setListingsStatus("Searching eBay…", false);
   els.listingsGrid.classList.add("hidden");
   els.loadBtn.disabled = true;
 
   try {
-    const res = await fetch(`${proxyRoot()}/ebay?url=${encodeURIComponent(url)}`);
+    const res = await fetch(`${proxyRoot()}/ebay?url=${encodeURIComponent(query)}`);
     const ct = res.headers.get("content-type") || "";
     const data = ct.includes("application/json") ? await res.json() : null;
     if (!res.ok) {
@@ -164,9 +162,7 @@ async function loadListings() {
     }
     applyListings(
       Array.isArray(data.listings) ? data.listings : [],
-      data.error
-        ? `No listings (${data.error}). Use the paste box above — eBay blocks server-side fetches.`
-        : "No listings on that page. Use the paste box above instead."
+      data.error ? data.error : "No results — try different keywords, or use the paste option below."
     );
   } catch (err) {
     console.error(err);

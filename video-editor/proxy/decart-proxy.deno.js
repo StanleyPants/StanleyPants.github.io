@@ -57,7 +57,7 @@ Deno.serve(async (request) => {
 
   // ---- Version marker -----------------------------------------------------
   if (reqUrl.pathname === "/__whoami") {
-    return text("decart-proxy DENO v7 (ebay-rss+decart)", cors);
+    return text("decart-proxy DENO v8 (ebay-browse-api+decart)", cors);
   }
 
   // ---- eBay listings ------------------------------------------------------
@@ -97,21 +97,36 @@ Deno.serve(async (request) => {
 
 // ---------------------------------------------------------------------------
 async function handleEbay(reqUrl, cors) {
-  const target = reqUrl.searchParams.get("url");
-  if (!target) return json({ error: "Missing ?url=" }, cors, 400);
+  const input = reqUrl.searchParams.get("url");
+  if (!input) return json({ error: "Missing ?url=" }, cors, 400);
 
+  // Preferred: eBay's official Browse API (needs EBAY_CLIENT_ID/SECRET env vars).
+  if (Deno.env.get("EBAY_CLIENT_ID") && Deno.env.get("EBAY_CLIENT_SECRET")) {
+    try {
+      const { q, seller } = parseSearch(input);
+      if (!q && !seller) return json({ error: "Enter keywords or a seller/search URL.", listings: [] }, cors, 200);
+      if (!q && seller) {
+        return json({ error: "eBay's Browse API needs a keyword — add a search term (a seller filter alone isn't supported).", listings: [] }, cors, 200);
+      }
+      const listings = await browseSearch(q, seller, 10);
+      return json({ listings, source: "browse-api" }, cors, 200);
+    } catch (err) {
+      return json({ error: "eBay API error: " + String(err && err.message || err), listings: [] }, cors, 200);
+    }
+  }
+
+  // Fallback (no API creds): best-effort scraping — eBay usually 403s datacenter IPs.
+  const target = input;
   let host;
   try {
     host = new URL(target).hostname;
   } catch {
-    return json({ error: "Invalid url" }, cors, 400);
+    return json({ error: "Invalid url (set EBAY_CLIENT_ID/SECRET to use the Browse API instead)" }, cors, 400);
   }
   if (!/(^|\.)ebay\.[a-z.]+$/i.test(host)) {
     return json({ error: "Only ebay.com URLs are allowed" }, cors, 400);
   }
 
-  // Try candidate URLs in order. eBay 403s datacenter IPs on the HTML page more
-  // readily than on the RSS feed, so we try the page first, then the RSS variant.
   const candidates = [target];
   const rss = withParam(target, "_rss", "1");
   if (rss && rss !== target) candidates.push(rss);
@@ -136,6 +151,75 @@ async function handleEbay(reqUrl, cors) {
       ? `eBay returned ${lastStatus} and no listings were found.`
       : "Couldn't reach eBay.";
   return json({ error: msg, listings: [] }, cors, 200);
+}
+
+// ---- eBay Browse API ------------------------------------------------------
+// App (client-credentials) OAuth token, cached in-isolate until ~2 min before expiry.
+let _ebayTok = { value: null, exp: 0 };
+async function getEbayToken() {
+  const now = Date.now();
+  if (_ebayTok.value && now < _ebayTok.exp) return _ebayTok.value;
+  const id = Deno.env.get("EBAY_CLIENT_ID");
+  const secret = Deno.env.get("EBAY_CLIENT_SECRET");
+  if (!id || !secret) throw new Error("EBAY_CLIENT_ID / EBAY_CLIENT_SECRET not set");
+  const resp = await fetch("https://api.ebay.com/identity/v1/oauth2/token", {
+    method: "POST",
+    headers: {
+      "authorization": "Basic " + btoa(`${id}:${secret}`),
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials&scope=" + encodeURIComponent("https://api.ebay.com/oauth/api_scope"),
+  });
+  if (!resp.ok) throw new Error(`OAuth ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+  const j = await resp.json();
+  _ebayTok = { value: j.access_token, exp: now + ((j.expires_in || 7200) - 120) * 1000 };
+  return _ebayTok.value;
+}
+
+// Turn a keyword string OR an eBay URL into { q, seller }.
+function parseSearch(input) {
+  const s = String(input).trim();
+  if (/^https?:\/\//i.test(s) || /ebay\./i.test(s)) {
+    try {
+      const u = new URL(/^https?:\/\//i.test(s) ? s : "https://" + s);
+      const q = (u.searchParams.get("_nkw") || "").trim();
+      let seller = (u.searchParams.get("_ssn") || "").trim();
+      if (!seller) {
+        const m = u.pathname.match(/\/(?:str|usr)\/([^/?#]+)/i);
+        if (m) seller = decodeURIComponent(m[1]);
+      }
+      if (q || seller) return { q, seller };
+    } catch { /* fall through to keyword */ }
+  }
+  return { q: s, seller: "" };
+}
+
+async function browseSearch(q, seller, limit) {
+  const token = await getEbayToken();
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (seller) params.set("filter", `sellers:{${seller}}`);
+  params.set("limit", String(limit));
+  const url = "https://api.ebay.com/buy/browse/v1/item_summary/search?" + params.toString();
+  const resp = await fetch(url, {
+    headers: {
+      "authorization": `Bearer ${token}`,
+      "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+      "accept": "application/json",
+    },
+  });
+  if (!resp.ok) throw new Error(`Browse ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+  const data = await resp.json();
+  const items = data.itemSummaries || [];
+  const listings = [];
+  for (const it of items) {
+    if (listings.length >= limit) break;
+    const img = (it.image && it.image.imageUrl) ||
+      (it.thumbnailImages && it.thumbnailImages[0] && it.thumbnailImages[0].imageUrl);
+    if (!img) continue;
+    listings.push({ title: it.title || "", image: img.replace(/^http:/i, "https:"), itemUrl: it.itemWebUrl || "" });
+  }
+  return listings;
 }
 
 // Add or replace a query param on a URL, returning the new URL string (or null).

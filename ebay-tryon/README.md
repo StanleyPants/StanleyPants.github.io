@@ -23,6 +23,21 @@ item 2 ──────┘   … up to 5
 3. **Generate** — one Decart job per selected item runs concurrently; each output appears in its own
    card with its own progress and a download button.
 
+## eBay listings: official Browse API (recommended)
+
+eBay blocks scraping from datacenter IPs, so the proxy uses eBay's official **Browse API**. One-time setup:
+
+1. At [developer.ebay.com](https://developer.ebay.com/) → **Application Keysets**, get your **Production**
+   **App ID (Client ID)** and **Cert ID (Client Secret)**.
+2. In your Deno Deploy project → **Settings → Environment Variables**, add:
+   - `EBAY_CLIENT_ID` = your App ID
+   - `EBAY_CLIENT_SECRET` = your Cert ID
+3. Redeploy the proxy. Now the **Search** box takes keywords (or a seller/search URL) and returns real
+   listings via the API. The proxy does the OAuth client-credentials flow and caches the token.
+
+No key? A collapsed **paste** option lets you copy an eBay page's source / image URLs from your own
+browser and extract the images client-side instead.
+
 ## Requirements: the Deno proxy
 
 This app needs the **Deno** proxy from [`../video-editor/proxy/decart-proxy.deno.js`](../video-editor/proxy/decart-proxy.deno.js),
