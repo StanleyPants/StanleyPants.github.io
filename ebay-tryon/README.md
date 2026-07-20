@@ -20,22 +20,24 @@ Step 1 shows the **Actor** and **Setting** side by side, each with a **Create Ne
 
 Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
 - **1b Setting** (optional) — describe a scene/background → another generated image.
-- **1c Source video** — Seedance combines them: with both images it uses **reference-to-video**
-  (`@Image1` = character, `@Image2` = setting); with only a character it uses **image-to-video**.
+- **1c Baseline video** — Seedance combines them: with both images it uses **reference-to-video**,
+  with only a character it uses **image-to-video**. Write the motion prompt using the words
+  **Actor** and **Setting** — the app encodes them to Seedance's `@Image1` / `@Image2` reference
+  tokens (actor first, then setting) before submitting.
 
 So the full chain is:
 
-**character (+ setting) images → source video (Seedance) → pick eBay items → try-on videos.**
+**character (+ setting) images → baseline video (Seedance) → pick eBay items → try-on videos.**
 
 Each image can also be **uploaded** instead of generated. Uses the same `FAL_KEY` and `/fal` proxy
 passthrough as the video step — no extra setup. (OpenArt has no public API, so fal is used for image
 generation.)
 
-## Optional step 0: generate the source video from an image (fal.ai Seedance 2.0)
+## Optional step 0: generate the baseline video from an image (fal.ai Seedance 2.0)
 
-Instead of uploading a video, you can upload **one image** + a prompt and generate the source video
+Instead of uploading a video, you can upload **one image** + a prompt and generate the baseline video
 with **Seedance 2.0 image-to-video** (via [fal.ai](https://fal.ai)). The generated video is downloaded
-and used as the source video for the try-on step. To enable it:
+and used as the baseline video for the try-on step. To enable it:
 
 1. Get a fal.ai API key from [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys).
 2. In your Deno Deploy project → **Settings → Environment Variables**, add `FAL_KEY` = your fal key.
@@ -57,7 +59,7 @@ input video ─┐
 item 2 ──────┘   … up to 5
 ```
 
-1. **Source video** — drop in a short clip (a person, for try-on).
+1. **Baseline video** — drop in a short clip (a person, for try-on).
 2. **eBay listings** — paste a URL like `https://www.ebay.com/sch/i.html?_ssn=SELLER`. The proxy
    fetches the page server-side and returns the first 10 listing images. Select up to 5.
 3. **Generate** — one Decart job per selected item runs concurrently; each output appears in its own

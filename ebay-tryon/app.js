@@ -1,7 +1,7 @@
 /* eBay Motion Studio — Decart.ai (client-side).
  *
  * Flow:
- *   1. Upload one source video.
+ *   1. Upload one baseline video.
  *   2. Paste an eBay seller/store/search URL -> proxy /ebay fetches the page and
  *      returns the first 10 listing images.
  *   3. Select up to 5 listings.
@@ -405,7 +405,7 @@ function refreshGenBtn() {
   const ready = !generating && !!charImgSrc &&
                 els.genPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
   els.genBtn.disabled = !ready;
-  els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate source video";
+  els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate baseline video";
 }
 
 async function generateSource() {
@@ -421,12 +421,21 @@ async function generateSource() {
   refreshGenBtn(); refreshImgBtns();
   setGenStatus(`<div class="spinner"></div><p>Submitting…</p>`, "");
 
-  // Two images -> reference-to-video (@Image1 char, @Image2 setting); one -> image-to-video.
+  // Two images -> reference-to-video; one -> image-to-video.
   const useImages = images;
   const combine = useImages.length >= 2;
+  // Users write "Actor" / "Setting" in the prompt; Seedance's reference-to-video
+  // addresses images as @Image1/@Image2 in image_urls order (actor first, then
+  // setting). Encode the friendly names to the reference tokens here.
+  let prompt = els.genPrompt.value.trim();
+  if (combine) {
+    prompt = prompt
+      .replace(/\bactor\b/gi, `@Image${useImages.indexOf(charImgSrc) + 1}`)
+      .replace(/\bsetting\b/gi, `@Image${useImages.indexOf(setImgSrc) + 1}`);
+  }
   const model = `bytedance/seedance-2.0/${combine ? "reference-to-video" : "image-to-video"}`;
   const input = {
-    prompt: els.genPrompt.value.trim(),
+    prompt,
     resolution: "720p",
     aspect_ratio: els.genAsp.value,
     generate_audio: els.genAudio.checked,
@@ -447,7 +456,7 @@ async function generateSource() {
     const file = new File([blob], "seedance-source.mp4", { type: blob.type || "video/mp4" });
 
     setVideo(file);
-    setGenStatus(`✅ Generated — set as your source video below. <video src="${videoUrl}" controls playsinline></video>`, "ok");
+    setGenStatus(`✅ Generated — set as your baseline video below. <video src="${videoUrl}" controls playsinline></video>`, "ok");
   } catch (err) {
     console.error(err);
     setGenStatus("⚠️ " + escapeHtml(err.message), "err");
@@ -668,7 +677,7 @@ async function generate() {
   const model = els.model.value.trim() || "lucy-vton-2";
   const prompt = els.prompt.value.trim();
   if (!apiKey) return showError("Add your Decart API key in ⚙️ API Settings.");
-  if (!videoFile) return showError("Choose a source video first.");
+  if (!videoFile) return showError("Choose a baseline video first.");
   if (!selected.length) return showError("Select at least one listing.");
 
   running = true;

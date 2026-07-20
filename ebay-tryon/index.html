@@ -64,9 +64,9 @@
     </section>
 
     <main class="stack">
-      <!-- 1. Source video -->
+      <!-- 1. Baseline video -->
       <section class="panel">
-        <h2 class="panel-title">1 · Create source video</h2>
+        <h2 class="panel-title">1 · Create baseline video</h2>
 
         <div class="two-col">
           <!-- 1a. Your Video's Actor -->
@@ -126,12 +126,12 @@
           </div>
         </div>
 
-        <p class="hint center or-sep">— combine into a source video —</p>
+        <p class="hint center or-sep">— combine into a baseline video —</p>
 
         <!-- 1c. Animate/combine via Seedance 2.0 -->
-        <label class="field-label">1c · Source video</label>
+        <label class="field-label">1c · Baseline video</label>
         <textarea id="genPrompt" rows="2" spellcheck="false"
-          placeholder="How it moves — reference images as @Image1 (actor), @Image2 (setting). e.g. “@Image1 walks slowly through @Image2, camera tracks alongside, soft daylight.”"></textarea>
+          placeholder="How it moves — refer to your Actor and Setting by name. e.g. “Actor walks slowly through Setting, camera tracks alongside, soft daylight.”"></textarea>
         <details class="advanced">
           <summary>Video options</summary>
           <div class="opt-grid">
@@ -151,7 +151,7 @@
             <label class="chk"><input type="checkbox" id="genAudio" /> Generate audio</label>
           </div>
         </details>
-        <button id="genBtn" class="ghost-btn" type="button" disabled>🎬 Generate source video</button>
+        <button id="genBtn" class="ghost-btn" type="button" disabled>🎬 Generate baseline video</button>
         <p id="genStatus" class="gen-status hidden"></p>
 
         <p class="hint center or-sep">— or upload your own video —</p>
@@ -238,6 +238,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=18"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>
