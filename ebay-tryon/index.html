@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
   <div class="app">
@@ -126,27 +126,6 @@
           </div>
         </div>
 
-        <details class="advanced">
-          <summary>Image model / size (for character & setting)</summary>
-          <div class="opt-grid">
-            <label>Model
-              <select id="charModel">
-                <option value="fal-ai/flux/dev">FLUX.1 [dev] — quality</option>
-                <option value="fal-ai/flux/schnell">FLUX.1 [schnell] — fast/cheap</option>
-                <option value="fal-ai/flux-2/turbo">FLUX 2 Turbo</option>
-              </select>
-            </label>
-            <label>Size
-              <select id="charSize">
-                <option value="portrait_4_3">Portrait 4:3</option>
-                <option value="portrait_16_9">Portrait tall</option>
-                <option value="square_hd">Square</option>
-                <option value="landscape_4_3">Landscape 4:3</option>
-              </select>
-            </label>
-          </div>
-        </details>
-
         <p class="hint center or-sep">— combine into a source video —</p>
 
         <!-- 1c. Animate/combine via Seedance 2.0 -->
@@ -262,6 +241,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

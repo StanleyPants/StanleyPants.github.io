@@ -15,6 +15,11 @@
  */
 
 const DEFAULT_API_BASE = "https://salty-osprey-9099.stanleypants.deno.net/v1";
+
+// Fixed image generation: highest-quality FLUX text-to-image; actor 9:16, setting 16:9.
+const IMAGE_MODEL = "fal-ai/flux-pro/v1.1-ultra";
+const ACTOR_ASPECT = "9:16";
+const SETTING_ASPECT = "16:9";
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_SELECT = 5;
@@ -34,8 +39,6 @@ const els = {
   dzEmpty: document.querySelector("#dropzone .dz-empty"),
   fileMeta: $("fileMeta"),
 
-  charModel: $("charModel"),
-  charSize: $("charSize"),
   charSeg: $("charSeg"),
   charCreatePane: $("charCreatePane"),
   charSelectPane: $("charSelectPane"),
@@ -264,16 +267,17 @@ async function createImage(kind) {
   refreshImgBtns(); refreshGenBtn();
 
   // Setting with "put the actor in this scene" -> FLUX Kontext using the chosen actor image.
-  // Otherwise -> plain FLUX text-to-image.
+  // Otherwise -> plain FLUX text-to-image (fixed highest-quality model + aspect).
+  const aspect = kind === "setting" ? SETTING_ASPECT : ACTOR_ASPECT;
   const putActorInScene = kind === "setting" && els.setIncludeChar.checked && charImgSrc;
   let model, input, note = "";
   if (putActorInScene) {
     note = " with actor";
     model = "fal-ai/flux-pro/kontext";
-    input = { prompt: s.prompt.value.trim(), image_url: charImgSrc, guidance_scale: 3.5, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
+    input = { prompt: s.prompt.value.trim(), image_url: charImgSrc, guidance_scale: 3.5, num_images: 1, aspect_ratio: aspect };
   } else {
-    model = els.charModel.value;
-    input = { prompt: s.prompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
+    model = IMAGE_MODEL;
+    input = { prompt: s.prompt.value.trim(), aspect_ratio: aspect, num_images: 1 };
   }
 
   setStatusEl(s.status, `<div class="spinner"></div><p>Creating ${s.label}${note}…</p>`, "");
@@ -439,11 +443,6 @@ async function generateSource() {
 }
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-// Map a FLUX text-to-image image_size to the nearest Kontext aspect_ratio.
-function sizeToAspect(size) {
-  return { portrait_4_3: "3:4", portrait_16_9: "9:16", square_hd: "1:1", landscape_4_3: "4:3" }[size] || "3:4";
-}
 
 // Submit an input to a fal.ai model via the proxy queue, poll to completion,
 // and return the result JSON. onStatus(status, seconds) is called while polling.
