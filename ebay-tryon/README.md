@@ -10,13 +10,18 @@ the `reference_image`, via [Decart.ai](https://platform.decart.ai/)'s try-on mod
 
 You can start from **text only**:
 
-- **1a Character** — describe a person → fal image model (FLUX.1 [dev]/[schnell] or FLUX 2 Turbo, selectable).
-  Optionally attach **1–3 reference photos** to keep a specific face/identity — routes to **FLUX Kontext**
-  (`fal-ai/flux-pro/kontext`, or `.../kontext/multi` for 2–3 refs). A **Face-match slider** controls how
-  closely to follow the reference (maps to Kontext `guidance_scale`).
-- **1b Setting** — optionally check **"Put the character in this scene"** to composite the 1a character
-  into the setting via Kontext. When used, the source video animates that single composite; otherwise the
-  character + setting are combined by Seedance reference-to-video.
+Step 1 shows the **Actor** and **Setting** side by side, each with a **Create New** / **Select** toggle:
+
+- **1a Your Video's Actor** — *Create New Actor* generates **3 candidates from 3 models** (FLUX ultra /
+  Nano Banana / GPT Image 2) at 9:16 — pick your favorite. Or *Select From Your Cast* (a saved gallery of
+  actors you've made/uploaded). Chosen images are saved to your **cast**.
+- **1b Your Video's Setting** — same **3-candidate** chooser at 16:9, or *Select From Your Set Locations*.
+  Optionally check **"Put the actor in this scene"** to composite the chosen actor into the setting — this
+  generates 3 candidates from image-editing models (FLUX Kontext / Nano Banana / GPT Image 2). When used,
+  the source video animates that single composite; otherwise actor + setting are combined by Seedance
+  reference-to-video.
+
+Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
 - **1b Setting** (optional) — describe a scene/background → another generated image.
 - **1c Source video** — Seedance combines them: with both images it uses **reference-to-video**
   (`@Image1` = character, `@Image2` = setting); with only a character it uses **image-to-video**.

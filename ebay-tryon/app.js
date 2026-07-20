@@ -15,6 +15,28 @@
  */
 
 const DEFAULT_API_BASE = "https://salty-osprey-9099.stanleypants.deno.net/v1";
+
+// Aspect ratios: actor 9:16 (portrait), setting 16:9 (landscape).
+const ACTOR_ASPECT = "9:16";
+const SETTING_ASPECT = "16:9";
+
+// GPT Image uses image_size presets instead of aspect_ratio.
+const gptSize = (ar) => (ar === "16:9" ? "landscape_16_9" : "portrait_16_9");
+
+// Create generates one candidate per model for the user to choose from —
+// four top image models (Black Forest Labs / Google / OpenAI / Google).
+const TEXT_MODELS = [
+  { id: "fal-ai/flux-pro/v1.1-ultra", label: "FLUX ultra",  input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
+  { id: "fal-ai/nano-banana",         label: "Nano Banana", input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
+  { id: "openai/gpt-image-2",         label: "GPT Image 2", input: (p, ar) => ({ prompt: p, image_size: gptSize(ar), quality: "high", num_images: 1 }) },
+  { id: "fal-ai/imagen4/preview",     label: "Imagen 4",    input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
+];
+// "Put the actor in this scene" uses image-editing models.
+const EDIT_MODELS = [
+  { id: "fal-ai/flux-pro/kontext", label: "FLUX Kontext", input: (p, ar, img) => ({ prompt: p, image_url: img, aspect_ratio: ar, guidance_scale: 3.5, num_images: 1 }) },
+  { id: "fal-ai/nano-banana/edit", label: "Nano Banana",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], num_images: 1 }) },
+  { id: "openai/gpt-image-2/edit", label: "GPT Image 2",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], image_size: gptSize(ar), quality: "high", num_images: 1 }) },
+];
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_SELECT = 5;
@@ -34,22 +56,26 @@ const els = {
   dzEmpty: document.querySelector("#dropzone .dz-empty"),
   fileMeta: $("fileMeta"),
 
-  charModel: $("charModel"),
-  charSize: $("charSize"),
+  charSeg: $("charSeg"),
+  charCreatePane: $("charCreatePane"),
+  charSelectPane: $("charSelectPane"),
+  castGrid: $("castGrid"),
   charPrompt: $("charPrompt"),
   charBtn: $("charBtn"),
+  charCandidates: $("charCandidates"),
   charUploadBtn: $("charUploadBtn"),
   charFile: $("charFile"),
   charThumb: $("charThumb"),
   charStatus: $("charStatus"),
-  charRefBtn: $("charRefBtn"),
-  charRefFile: $("charRefFile"),
-  charRefThumb: $("charRefThumb"),
-  faceMatch: $("faceMatch"),
-  setIncludeChar: $("setIncludeChar"),
 
+  setIncludeChar: $("setIncludeChar"),
+  setSeg: $("setSeg"),
+  setCreatePane: $("setCreatePane"),
+  setSelectPane: $("setSelectPane"),
+  setGrid: $("setGrid"),
   setPrompt: $("setPrompt"),
   setBtn: $("setBtn"),
+  setCandidates: $("setCandidates"),
   setUploadBtn: $("setUploadBtn"),
   setFile: $("setFile"),
   setThumb: $("setThumb"),
@@ -86,10 +112,14 @@ const LS_BASE = "decart_api_base";
 const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-on model
 
 let videoFile = null;
-let charImgSrc = null;         // character image (data URI or fal URL)
-let charRefs = [];             // up to 3 reference photos → identity-preserving generation
-let setImgSrc = null;          // setting image (optional)
-let settingHasChar = false;    // true when the setting already composites the character
+let charImgSrc = null;         // chosen actor image (data URI or fal URL)
+let setImgSrc = null;          // chosen setting image (optional)
+let settingHasChar = false;    // true when the setting already composites the actor
+let cast = [];                 // saved actors: [{ id, src, label }]
+let setLocations = [];         // saved settings: [{ id, src, label }]
+
+const LS_CAST = "tryon_cast";
+const LS_SETLOC = "tryon_setlocations";
 let generating = false;
 let listings = [];             // { title, image }
 let selected = [];             // indices into listings, in click order (max 5)
@@ -173,134 +203,214 @@ function setVideo(file) {
   refreshGenerate();
 }
 
-// ---- Source images (character + setting) & video generation ---------------
+// ---- Source images: Actor (cast) + Setting (set locations) ----------------
 function setupSourceImages() {
-  // Character slot
+  // Load saved libraries
+  cast = loadLib(LS_CAST);
+  setLocations = loadLib(LS_SETLOC);
+
+  // Actor
   els.charPrompt.addEventListener("input", refreshImgBtns);
   els.charBtn.addEventListener("click", () => createImage("character"));
   els.charUploadBtn.addEventListener("click", () => els.charFile.click());
-  els.charFile.addEventListener("change", (e) => uploadInto("character", e.target.files));
-  // Character reference photos (identity preservation, up to 3)
-  els.charRefBtn.addEventListener("click", () => els.charRefFile.click());
-  els.charRefFile.addEventListener("change", async (e) => {
-    for (const f of Array.from(e.target.files || [])) {
-      if (charRefs.length >= 3) break;
-      if (f.type.startsWith("image/")) charRefs.push(await readAsDataURL(f));
-    }
-    els.charRefFile.value = "";
-    renderCharRef();
-  });
-  // Setting slot
+  els.charFile.addEventListener("change", (e) => addToLibrary("character", e.target.files));
+  setupSeg(els.charSeg, els.charCreatePane, els.charSelectPane, () => renderLibrary("character"));
+
+  // Setting
   els.setPrompt.addEventListener("input", refreshImgBtns);
   els.setBtn.addEventListener("click", () => createImage("setting"));
   els.setUploadBtn.addEventListener("click", () => els.setFile.click());
-  els.setFile.addEventListener("change", (e) => uploadInto("setting", e.target.files));
-  // Animate
+  els.setFile.addEventListener("change", (e) => addToLibrary("setting", e.target.files));
+  setupSeg(els.setSeg, els.setCreatePane, els.setSelectPane, () => renderLibrary("setting"));
+
+  // Video
   els.genPrompt.addEventListener("input", refreshGenBtn);
   els.genBtn.addEventListener("click", generateSource);
+
+  renderLibrary("character");
+  renderLibrary("setting");
 }
 
-// Per-slot config so character and setting share one implementation.
+// Segmented Create/Select toggle.
+function setupSeg(seg, createPane, selectPane, onSelect) {
+  seg.querySelectorAll(".seg-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      seg.querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      const create = btn.dataset.mode === "create";
+      createPane.classList.toggle("hidden", !create);
+      selectPane.classList.toggle("hidden", create);
+      if (!create) onSelect();
+    });
+  });
+}
+
+// Per-kind config.
 function slot(kind) {
   return kind === "character"
-    ? { get: () => charImgSrc, set: (v) => (charImgSrc = v), prompt: els.charPrompt, btn: els.charBtn, thumb: els.charThumb, status: els.charStatus, file: els.charFile, label: "character", emoji: "🧑‍🎨", make: "Create character" }
-    : { get: () => setImgSrc, set: (v) => (setImgSrc = v), prompt: els.setPrompt, btn: els.setBtn, thumb: els.setThumb, status: els.setStatus, file: els.setFile, label: "setting", emoji: "🏞️", make: "Create setting" };
+    ? { get: () => charImgSrc, set: (v) => (charImgSrc = v), prompt: els.charPrompt, btn: els.charBtn, thumb: els.charThumb, status: els.charStatus, file: els.charFile,
+        grid: els.castGrid, cand: els.charCandidates, lib: cast, libKey: LS_CAST, label: "actor", makeN: "🧑‍🎨 Create Actor options" }
+    : { get: () => setImgSrc, set: (v) => (setImgSrc = v), prompt: els.setPrompt, btn: els.setBtn, thumb: els.setThumb, status: els.setStatus, file: els.setFile,
+        grid: els.setGrid, cand: els.setCandidates, lib: setLocations, libKey: LS_SETLOC, label: "setting", makeN: "🏞️ Create Setting options" };
 }
 
 function refreshImgBtns() {
   const bad = generating || /api\.decart\.ai/i.test(apiBase());
   els.charBtn.disabled = bad || els.charPrompt.value.trim().length === 0;
   els.setBtn.disabled = bad || els.setPrompt.value.trim().length === 0;
-  els.charBtn.textContent = generating ? "…" : "🧑‍🎨 Create character";
-  els.setBtn.textContent = generating ? "…" : "🏞️ Create setting";
+  els.charBtn.textContent = generating ? "…" : "🧑‍🎨 Create Actor options";
+  els.setBtn.textContent = generating ? "…" : "🏞️ Create Setting options";
 }
 
-async function uploadInto(kind, fileList) {
+// Add an uploaded photo to a library and select it.
+async function addToLibrary(kind, fileList) {
   const s = slot(kind);
   const f = Array.from(fileList || []).find((x) => x.type.startsWith("image/"));
   if (f) {
-    s.set(await readAsDataURL(f));
-    if (kind === "setting") settingHasChar = false; // uploaded plain setting
-    renderSlot(kind);
-    setStatusEl(s.status, `✅ ${cap(s.label)} image added.`, "ok");
+    const src = await readAsDataURL(f);
+    saveToLib(kind, src, "uploaded");
+    chooseFromLibrary(kind, src);
+    setStatusEl(s.status, `✅ Added to your ${kind === "character" ? "cast" : "set locations"}.`, "ok");
   }
   s.file.value = "";
-  refreshGenBtn();
 }
 
 async function createImage(kind) {
   clearError();
   const s = slot(kind);
-  if (!s.prompt.value.trim()) return showError(`Describe the ${s.label} first.`);
+  const prompt = s.prompt.value.trim();
+  if (!prompt) return showError(`Describe the ${s.label} first.`);
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
   }
 
+  const aspect = kind === "setting" ? SETTING_ASPECT : ACTOR_ASPECT;
+  // "Put the actor in this scene" uses image-editing models; otherwise text-to-image.
+  const composite = kind === "setting" && els.setIncludeChar.checked && charImgSrc;
+  const models = (composite ? EDIT_MODELS : TEXT_MODELS).map((m) => ({
+    id: m.id, label: m.label, input: composite ? m.input(prompt, aspect, charImgSrc) : m.input(prompt, aspect),
+  }));
+
   generating = true;
   refreshImgBtns(); refreshGenBtn();
+  setStatusEl(s.status, `<div class="spinner"></div><p>Generating ${models.length} options…</p>`, "");
 
-  // Decide the model + input:
-  //  - character with reference photo(s) -> FLUX Kontext (single or multi), identity-preserving
-  //  - setting with "put character in scene" -> Kontext using the character image
-  //  - otherwise -> plain FLUX text-to-image
-  const guidance = faceGuidance();
-  let model, input, note = "";
-  let usedCharInSetting = false;
+  // Render a loading cell per model, then fill each as it completes.
+  s.cand.innerHTML = "";
+  const cells = models.map((m) => {
+    const cell = document.createElement("div");
+    cell.className = "cand-item";
+    cell.innerHTML = `<div class="spinner"></div><div class="lbl">${escapeHtml(m.label)}</div>`;
+    s.cand.appendChild(cell);
+    return cell;
+  });
 
-  if (kind === "character" && charRefs.length >= 1) {
-    note = " from reference";
-    if (charRefs.length === 1) {
-      model = "fal-ai/flux-pro/kontext";
-      input = { prompt: s.prompt.value.trim(), image_url: charRefs[0], guidance_scale: guidance, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
-    } else {
-      model = "fal-ai/flux-pro/kontext/multi";
-      input = { prompt: s.prompt.value.trim(), image_urls: charRefs, guidance_scale: guidance, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
+  await Promise.allSettled(models.map((m, i) => (async () => {
+    try {
+      const result = await falRun(m.id, m.input, null);
+      const url = result.images && result.images[0] && result.images[0].url;
+      if (!url) throw new Error("no image");
+      cells[i].innerHTML = `<img src="${url}" alt="${escapeHtml(m.label)}"><div class="lbl">${escapeHtml(m.label)}</div>`;
+      cells[i].addEventListener("click", () => {
+        cells.forEach((c) => c.classList.remove("selected"));
+        cells[i].classList.add("selected");
+        saveToLib(kind, url, prompt.slice(0, 60));
+        if (kind === "setting") settingHasChar = composite;
+        chooseFromLibrary(kind, url);
+        setStatusEl(s.status, `✅ Chose the ${m.label} ${s.label} — saved to your ${kind === "character" ? "cast" : "set locations"}.`, "ok");
+      });
+    } catch (err) {
+      cells[i].innerHTML = `<div class="err">${escapeHtml(m.label)}: ${escapeHtml(err.message || "failed")}</div>`;
     }
-  } else if (kind === "setting" && els.setIncludeChar.checked && charImgSrc) {
-    note = " with character";
-    usedCharInSetting = true;
-    model = "fal-ai/flux-pro/kontext";
-    input = { prompt: s.prompt.value.trim(), image_url: charImgSrc, guidance_scale: guidance, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
-  } else {
-    model = els.charModel.value;
-    input = { prompt: s.prompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
-  }
+  })()));
 
-  setStatusEl(s.status, `<div class="spinner"></div><p>Creating ${s.label}${note}…</p>`, "");
-  try {
-    const result = await falRun(model, input, (status, secs) =>
-      setStatusEl(s.status, `<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${secs}s)</p>`, ""));
-    const imageUrl = result.images && result.images[0] && result.images[0].url;
-    if (!imageUrl) throw new Error("No image URL in the result.");
-    s.set(imageUrl); // fal image URL — Seedance accepts it directly
-    if (kind === "setting") settingHasChar = usedCharInSetting;
-    renderSlot(kind);
-    setStatusEl(s.status, `✅ ${cap(s.label)} created${note}.`, "ok");
-  } catch (err) {
-    console.error(err);
-    setStatusEl(s.status, "⚠️ " + escapeHtml(err.message), "err");
-  } finally {
-    generating = false;
-    refreshImgBtns(); refreshGenBtn();
-  }
+  if (s.status.textContent.includes("Generating")) setStatusEl(s.status, `Pick your favorite ${s.label} above 👆`, "");
+  generating = false;
+  refreshImgBtns(); refreshGenBtn();
 }
 
-function renderSlot(kind) {
+// Set the chosen image for a kind (shown in the "Chosen …" thumb) and mark it in the grid.
+function chooseFromLibrary(kind, src) {
+  const s = slot(kind);
+  s.set(src);
+  if (kind === "setting" && src !== null) {
+    // choosing a saved setting from the library is a plain setting (not a composite)
+    // unless it was just created with the actor (createImage sets settingHasChar itself).
+  }
+  renderChosen(kind);
+  renderLibrary(kind);
+  refreshGenBtn();
+}
+
+function renderChosen(kind) {
   const s = slot(kind);
   s.thumb.innerHTML = "";
   const src = s.get();
-  if (!src) { refreshGenBtn(); return; }
+  if (!src) return;
   const wrap = document.createElement("div");
   wrap.className = "img-thumb";
   const img = document.createElement("img");
-  img.src = src;
-  img.alt = s.label;
+  img.src = src; img.alt = s.label;
   const rm = document.createElement("button");
-  rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Remove";
-  rm.addEventListener("click", () => { s.set(null); if (kind === "setting") settingHasChar = false; s.thumb.innerHTML = ""; s.status.classList.add("hidden"); refreshGenBtn(); });
+  rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Clear selection";
+  rm.addEventListener("click", () => { s.set(null); if (kind === "setting") settingHasChar = false; renderChosen(kind); renderLibrary(kind); refreshGenBtn(); });
   wrap.append(img, rm);
   s.thumb.appendChild(wrap);
-  refreshGenBtn();
+}
+
+// Render the saved cast / set-locations gallery.
+function renderLibrary(kind) {
+  const s = slot(kind);
+  s.grid.innerHTML = "";
+  s.lib.forEach((item) => {
+    const cell = document.createElement("div");
+    cell.className = "picker-item" + (s.get() === item.src ? " selected" : "");
+    cell.title = item.label || "";
+    const img = document.createElement("img");
+    img.src = item.src; img.alt = item.label || s.label; img.loading = "lazy";
+    const rm = document.createElement("button");
+    rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Delete";
+    rm.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeFromLib(kind, item.id);
+      if (s.get() === item.src) { s.set(null); if (kind === "setting") settingHasChar = false; renderChosen(kind); }
+      renderLibrary(kind); refreshGenBtn();
+    });
+    cell.addEventListener("click", () => {
+      if (kind === "setting") settingHasChar = false; // picking a saved setting = plain setting
+      chooseFromLibrary(kind, item.src);
+    });
+    cell.append(img, rm);
+    s.grid.appendChild(cell);
+  });
+}
+
+// ---- Library persistence (localStorage, quota-safe) -----------------------
+function loadLib(key) {
+  try { const v = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(v) ? v : []; }
+  catch { return []; }
+}
+function saveToLib(kind, src, label) {
+  const s = slot(kind);
+  const id = "id" + s.lib.length + "_" + src.slice(-8);
+  s.lib.unshift({ id, src, label: label || "" });
+  if (s.lib.length > 24) s.lib.length = 24;
+  persistLib(kind);
+}
+function removeFromLib(kind, id) {
+  const s = slot(kind);
+  const i = s.lib.findIndex((x) => x.id === id);
+  if (i >= 0) s.lib.splice(i, 1);
+  persistLib(kind);
+}
+function persistLib(kind) {
+  const s = slot(kind);
+  // Drop oldest until it fits localStorage (uploaded data URIs can be large).
+  let arr = s.lib.slice();
+  while (arr.length) {
+    try { localStorage.setItem(s.libKey, JSON.stringify(arr)); break; }
+    catch { arr = arr.slice(0, -1); }
+  }
+  if (!arr.length) { try { localStorage.setItem(s.libKey, "[]"); } catch { /* ignore */ } }
 }
 
 function refreshGenBtn() {
@@ -313,7 +423,7 @@ function refreshGenBtn() {
 async function generateSource() {
   clearError();
   const images = [charImgSrc, setImgSrc].filter(Boolean);
-  if (!images.length) return showError("Create or upload a character image first.");
+  if (!images.length) return showError("Create or select an actor first.");
   if (!els.genPrompt.value.trim()) return showError("Write a prompt for the video.");
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
@@ -362,32 +472,6 @@ async function generateSource() {
 }
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-function renderCharRef() {
-  els.charRefThumb.innerHTML = "";
-  charRefs.forEach((src, i) => {
-    const wrap = document.createElement("div");
-    wrap.className = "img-thumb";
-    const img = document.createElement("img");
-    img.src = src; img.alt = `reference ${i + 1}`;
-    const rm = document.createElement("button");
-    rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Remove reference";
-    rm.addEventListener("click", () => { charRefs.splice(i, 1); renderCharRef(); });
-    wrap.append(img, rm);
-    els.charRefThumb.appendChild(wrap);
-  });
-}
-
-// Face-match slider (0=loose .. 100=strong) -> Kontext guidance_scale (~6 loose .. 1.5 strong).
-function faceGuidance() {
-  const m = Number(els.faceMatch && els.faceMatch.value) || 60;
-  return Math.round((6 - (m / 100) * 4.5) * 10) / 10;
-}
-
-// Map a FLUX text-to-image image_size to the nearest Kontext aspect_ratio.
-function sizeToAspect(size) {
-  return { portrait_4_3: "3:4", portrait_16_9: "9:16", square_hd: "1:1", landscape_4_3: "4:3" }[size] || "3:4";
-}
 
 // Submit an input to a fal.ai model via the proxy queue, poll to completion,
 // and return the result JSON. onStatus(status, seconds) is called while polling.

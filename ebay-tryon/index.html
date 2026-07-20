@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Try-On Video Generator · Decart</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
-  <link rel="stylesheet" href="styles.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=15" />
 </head>
 <body>
   <div class="app">
@@ -67,71 +67,73 @@
       <section class="panel">
         <h2 class="panel-title">1 · Create source video</h2>
 
-        <!-- 1a. Character image -->
-        <label class="field-label">1a · Character image <span class="muted-tag">fal.ai image</span></label>
-        <textarea id="charPrompt" rows="2" spellcheck="false"
-          placeholder="Describe the character — e.g. “Full-body studio photo of a young woman, curly red hair, plain white t-shirt and blue jeans, front-facing, soft lighting.”"></textarea>
-        <div class="slot-row">
-          <span class="hint" style="margin:0;flex:1;">Reference photo(s) (optional) — keep a specific face/person (up to 3)</span>
-          <button id="charRefBtn" class="ghost-btn small" type="button">📎 Reference</button>
-          <input id="charRefFile" type="file" accept="image/*" multiple hidden />
-        </div>
-        <div id="charRefThumb" class="img-thumbs"></div>
-        <div id="faceMatchRow" class="slot-row" style="gap:10px;">
-          <label for="faceMatch" class="hint" style="margin:0;white-space:nowrap;">Face match</label>
-          <input type="range" id="faceMatch" min="0" max="100" value="60" style="flex:1;" />
-          <span class="hint" style="margin:0;">strong ➜</span>
-        </div>
-        <div class="slot-row">
-          <button id="charBtn" class="ghost-btn" type="button" disabled>🧑‍🎨 Create character</button>
-          <button id="charUploadBtn" class="ghost-btn small" type="button">⬆ Upload</button>
-          <input id="charFile" type="file" accept="image/*" hidden />
-        </div>
-        <div id="charThumb" class="img-thumbs"></div>
-        <p id="charStatus" class="gen-status hidden"></p>
+        <div class="two-col">
+          <!-- 1a. Your Video's Actor -->
+          <div class="col">
+            <label class="field-label">1a · Your Video's Actor <span class="muted-tag">fal.ai image</span></label>
+            <div class="seg" id="charSeg">
+              <button type="button" class="seg-btn active" data-mode="create">Create New Actor</button>
+              <button type="button" class="seg-btn" data-mode="select">Select From Your Cast</button>
+            </div>
 
-        <!-- 1b. Setting image -->
-        <label class="field-label" style="margin-top:16px;">1b · Setting image <span class="muted-tag">optional</span></label>
-        <textarea id="setPrompt" rows="2" spellcheck="false"
-          placeholder="Describe the scene/background — e.g. “A sunlit Parisian street café, cobblestones, greenery, shallow depth of field.”"></textarea>
-        <div class="slot-row">
-          <button id="setBtn" class="ghost-btn" type="button" disabled>🏞️ Create setting</button>
-          <button id="setUploadBtn" class="ghost-btn small" type="button">⬆ Upload</button>
-          <input id="setFile" type="file" accept="image/*" hidden />
-        </div>
-        <label class="chk" style="margin-top:8px;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;">
-          <input type="checkbox" id="setIncludeChar" /> Put the character in this scene (composites 1a into the setting)
-        </label>
-        <div id="setThumb" class="img-thumbs"></div>
-        <p id="setStatus" class="gen-status hidden"></p>
+            <div class="pane" id="charCreatePane">
+              <textarea id="charPrompt" rows="2" spellcheck="false"
+                placeholder="Describe the actor — e.g. “Full-body studio photo of a young woman, curly red hair, plain white t-shirt and blue jeans, front-facing, soft lighting.”"></textarea>
+              <button id="charBtn" class="ghost-btn" type="button" disabled>🧑‍🎨 Create Actor options</button>
+              <div id="charCandidates" class="cand-grid"></div>
+            </div>
 
-        <details class="advanced">
-          <summary>Image model / size (for character & setting)</summary>
-          <div class="opt-grid">
-            <label>Model
-              <select id="charModel">
-                <option value="fal-ai/flux/dev">FLUX.1 [dev] — quality</option>
-                <option value="fal-ai/flux/schnell">FLUX.1 [schnell] — fast/cheap</option>
-                <option value="fal-ai/flux-2/turbo">FLUX 2 Turbo</option>
-              </select>
-            </label>
-            <label>Size
-              <select id="charSize">
-                <option value="portrait_4_3">Portrait 4:3</option>
-                <option value="portrait_16_9">Portrait tall</option>
-                <option value="square_hd">Square</option>
-                <option value="landscape_4_3">Landscape 4:3</option>
-              </select>
-            </label>
+            <div class="pane hidden" id="charSelectPane">
+              <div id="castGrid" class="picker-grid"></div>
+              <div class="slot-row">
+                <button id="charUploadBtn" class="ghost-btn small" type="button">⬆ Add photo to cast</button>
+                <input id="charFile" type="file" accept="image/*" hidden />
+              </div>
+            </div>
+
+            <p class="hint" style="margin-top:8px;">Chosen actor:</p>
+            <div id="charThumb" class="img-thumbs"></div>
+            <p id="charStatus" class="gen-status hidden"></p>
           </div>
-        </details>
+
+          <!-- 1b. Your Video's Setting -->
+          <div class="col">
+            <label class="field-label">1b · Your Video's Setting <span class="muted-tag">optional</span></label>
+            <div class="seg" id="setSeg">
+              <button type="button" class="seg-btn active" data-mode="create">Create New Setting</button>
+              <button type="button" class="seg-btn" data-mode="select">Select From Your Set Locations</button>
+            </div>
+
+            <div class="pane" id="setCreatePane">
+              <textarea id="setPrompt" rows="2" spellcheck="false"
+                placeholder="Describe the scene — e.g. “A sunlit Parisian street café, cobblestones, greenery, shallow depth of field.”"></textarea>
+              <label class="chk" style="font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;margin:8px 0;">
+                <input type="checkbox" id="setIncludeChar" /> Put the actor in this scene
+              </label>
+              <button id="setBtn" class="ghost-btn" type="button" disabled>🏞️ Create Setting options</button>
+              <div id="setCandidates" class="cand-grid"></div>
+            </div>
+
+            <div class="pane hidden" id="setSelectPane">
+              <div id="setGrid" class="picker-grid"></div>
+              <div class="slot-row">
+                <button id="setUploadBtn" class="ghost-btn small" type="button">⬆ Add photo to set locations</button>
+                <input id="setFile" type="file" accept="image/*" hidden />
+              </div>
+            </div>
+
+            <p class="hint" style="margin-top:8px;">Chosen setting:</p>
+            <div id="setThumb" class="img-thumbs"></div>
+            <p id="setStatus" class="gen-status hidden"></p>
+          </div>
+        </div>
 
         <p class="hint center or-sep">— combine into a source video —</p>
 
         <!-- 1c. Animate/combine via Seedance 2.0 -->
         <label class="field-label">1c · Source video <span class="muted-tag">Seedance 2.0 · fal.ai</span></label>
         <textarea id="genPrompt" rows="2" spellcheck="false"
-          placeholder="How it moves — reference images as @Image1 (character), @Image2 (setting). e.g. “@Image1 walks slowly through @Image2, camera tracks alongside, soft daylight.”"></textarea>
+          placeholder="How it moves — reference images as @Image1 (actor), @Image2 (setting). e.g. “@Image1 walks slowly through @Image2, camera tracks alongside, soft daylight.”"></textarea>
         <details class="advanced">
           <summary>Video options</summary>
           <div class="opt-grid">
@@ -241,6 +243,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
