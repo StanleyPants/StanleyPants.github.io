@@ -65,11 +65,13 @@ const els = {
   toggleKey: $("toggleKey"),
   apiBase: $("apiBase"),
 
-  dropzone: $("dropzone"),
-  fileInput: $("fileInput"),
-  sourcePreview: $("sourcePreview"),
-  dzEmpty: document.querySelector("#dropzone .dz-empty"),
-  fileMeta: $("fileMeta"),
+  stage: $("stage"),
+  stageSpinner: $("stageSpinner"),
+  compositeImg: $("compositeImg"),
+  stageOverlay: $("stageOverlay"),
+  stageHint: $("stageHint"),
+  videoWrap: $("videoWrap"),
+  baselineVideo: $("baselineVideo"),
 
   charSeg: $("charSeg"),
   charCreatePane: $("charCreatePane"),
@@ -134,6 +136,11 @@ const LS_CAST = "tryon_cast";
 const LS_SETLOC = "tryon_setlocations";
 let generating = false;
 let generatingKind = null; // "character" | "setting" while an image is generating
+let compositeUrl = null;   // staged 16:9 shot (actor composited/reframed), animated by Kling
+let compositeSig = null;   // signature of the (actor,set) the composite was built from
+let compositeToken = 0;    // supersedes in-flight composite builds
+let compositing = false;   // true while the composite is being staged
+let compositeTimer = null; // debounce for auto-staging on selection changes
 let listings = [];             // { title, image }
 let selected = [];             // indices into listings, in click order (max 5)
 let running = false;
@@ -159,7 +166,6 @@ let running = false;
     els.apiKey.type = els.apiKey.type === "password" ? "text" : "password";
   });
 
-  setupDropzone();
   setupSourceImages();
   els.loadBtn.addEventListener("click", loadListings);
   els.ebayUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") loadListings(); });
@@ -182,34 +188,11 @@ function proxyRoot() {
   return apiBase().replace(/\/v1$/, "");
 }
 
-// ---- Video upload ---------------------------------------------------------
-function setupDropzone() {
-  const dz = els.dropzone;
-  dz.addEventListener("click", () => els.fileInput.click());
-  dz.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.fileInput.click(); }
-  });
-  els.fileInput.addEventListener("change", (e) => {
-    if (e.target.files && e.target.files[0]) setVideo(e.target.files[0]);
-  });
-  ["dragenter", "dragover"].forEach((ev) =>
-    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("dragover"); }));
-  ["dragleave", "drop"].forEach((ev) =>
-    dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("dragover"); }));
-  dz.addEventListener("drop", (e) => {
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f && f.type.startsWith("video/")) setVideo(f);
-    else if (f) showError("That doesn't look like a video file.");
-  });
-}
-
+// ---- Baseline video output ------------------------------------------------
 function setVideo(file) {
   videoFile = file;
-  els.sourcePreview.src = URL.createObjectURL(file);
-  els.sourcePreview.classList.remove("hidden");
-  els.dzEmpty.classList.add("hidden");
-  els.fileMeta.textContent = `${file.name || "video"} · ${formatBytes(file.size)}`;
-  els.fileMeta.classList.remove("hidden");
+  els.baselineVideo.src = URL.createObjectURL(file);
+  els.videoWrap.classList.remove("hidden");
   refreshGenerate();
 }
 
@@ -358,6 +341,7 @@ function chooseFromLibrary(kind, src) {
   renderChosen(kind);
   renderLibrary(kind);
   refreshGenBtn();
+  queueComposite();
 }
 
 function renderChosen(kind) {
@@ -371,7 +355,7 @@ function renderChosen(kind) {
   img.src = src; img.alt = s.label;
   const rm = document.createElement("button");
   rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Clear selection";
-  rm.addEventListener("click", () => { s.set(null); renderChosen(kind); renderLibrary(kind); refreshGenBtn(); });
+  rm.addEventListener("click", () => { s.set(null); renderChosen(kind); renderLibrary(kind); refreshGenBtn(); queueComposite(); });
   wrap.append(img, rm);
   s.thumb.appendChild(wrap);
 }
@@ -392,7 +376,7 @@ function renderLibrary(kind) {
       e.stopPropagation();
       removeFromLib(kind, item.id);
       if (s.get() === item.src) { s.set(null); renderChosen(kind); }
-      renderLibrary(kind); refreshGenBtn();
+      renderLibrary(kind); refreshGenBtn(); queueComposite();
     });
     cell.addEventListener("click", () => {
       chooseFromLibrary(kind, item.src);
@@ -432,10 +416,115 @@ function persistLib(kind) {
 }
 
 function refreshGenBtn() {
-  const ready = !generating && !!charImgSrc && TEMPLATES.length > 0 &&
-                !/api\.decart\.ai/i.test(apiBase());
+  // Enabled only once a staged composite exists; the dynamic "Action" text
+  // shows while the video is being generated.
+  const ready = !generating && !compositing && !!compositeUrl && TEMPLATES.length > 0;
   els.genBtn.disabled = !ready;
-  els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate baseline video";
+  els.genBtn.textContent = generating
+    ? "🎬 Quiet on set. Actor in position. And Action."
+    : "🎬 Generate baseline video";
+}
+
+// ---- Staging the shot (composite) -----------------------------------------
+function compositeSignature() {
+  return charImgSrc ? `${charImgSrc}||${setImgSrc || ""}` : null;
+}
+
+// Set the stage UI to one of: empty | building | ready | generating | error.
+function setStage(mode, msg) {
+  const show = (el, on) => el && el.classList.toggle("hidden", !on);
+  const hasImg = mode === "ready" || mode === "generating";
+  show(els.stage, mode === "building" || hasImg);
+  show(els.stageSpinner, mode === "building");
+  show(els.compositeImg, hasImg);
+  if (hasImg && compositeUrl) els.compositeImg.src = compositeUrl;
+  show(els.stageOverlay, mode === "generating");
+  if (mode === "empty") {
+    els.stageHint.textContent = "Cast an actor (and optionally choose a set) above — your shot will be staged here.";
+    show(els.stageHint, true);
+  } else if (mode === "error") {
+    els.stageHint.textContent = "⚠️ " + (msg || "Couldn't stage the shot.");
+    show(els.stageHint, true);
+  } else {
+    show(els.stageHint, false);
+  }
+}
+
+// Debounced entry point: called whenever the actor/set selection changes.
+function queueComposite() {
+  if (generating) return; // don't disturb the stage while a video is rendering
+  const sig = compositeSignature();
+  if (!sig) { // no actor -> clear the stage
+    compositeToken++; compositing = false; compositeUrl = null; compositeSig = null;
+    clearTimeout(compositeTimer);
+    setStage("empty"); refreshGenBtn();
+    return;
+  }
+  if (sig === compositeSig && compositeUrl) { setStage("ready"); refreshGenBtn(); return; }
+  // Something changed and we need a fresh composite — debounce rapid re-picks.
+  clearTimeout(compositeTimer);
+  compositing = true; compositeUrl = null; compositeSig = null;
+  setStage("building"); refreshGenBtn();
+  compositeTimer = setTimeout(refreshComposite, 600);
+}
+
+// Build (or rebuild) the staged composite for the current actor/set.
+async function refreshComposite() {
+  const sig = compositeSignature();
+  if (!sig) { setStage("empty"); return; }
+  if (/api\.decart\.ai/i.test(apiBase())) {
+    compositing = false; compositeUrl = null; compositeSig = null;
+    setStage("error", "Set the API base URL to your Deno proxy (Settings) to stage the shot.");
+    refreshGenBtn();
+    return;
+  }
+  const token = ++compositeToken;
+  compositing = true; setStage("building"); refreshGenBtn();
+  try {
+    const url = await buildComposite();
+    if (token !== compositeToken) return; // superseded by a newer selection
+    compositeUrl = url; compositeSig = sig; compositing = false;
+    setStage("ready"); refreshGenBtn();
+  } catch (err) {
+    if (token !== compositeToken) return;
+    console.error(err);
+    compositing = false; compositeUrl = null; compositeSig = null;
+    setStage("error", err.message); refreshGenBtn();
+  }
+}
+
+// Produce a single 16:9 source image with Nano Banana: composite the actor into
+// the chosen setting, or (no setting) reframe the actor's portrait onto a 16:9
+// studio backdrop. Kling inherits the image's aspect, so both stay 16:9.
+async function buildComposite() {
+  const input = setImgSrc
+    ? {
+        prompt:
+          "Blend the person from the first image naturally into the scene from the second image as a " +
+          "single photorealistic 16:9 landscape photograph. Set the person back within the environment " +
+          "at a natural full-body distance from the camera, standing on the actual ground in the " +
+          "mid-ground of the scene — not close-up in the foreground. Ground them with realistic contact " +
+          "shadows and any reflections, match the scene's light direction, color temperature, perspective, " +
+          "scale, depth of field, and grain, and let environmental elements sit both in front of and " +
+          "behind them so they are truly embedded in the space. The result must look like a real photo " +
+          "taken in that location, with natural depth — never like a cut-out pasted on a flat backdrop.",
+        image_urls: [charImgSrc, setImgSrc],
+        aspect_ratio: "16:9",
+        num_images: 1,
+      }
+    : {
+        prompt:
+          "Reframe this full-body studio audition photo as a 16:9 landscape image: keep the same " +
+          "person, entire body from head to toe fully in frame, standing centered against a plain " +
+          "seamless white studio background with even, professional lighting.",
+        image_urls: [charImgSrc],
+        aspect_ratio: "16:9",
+        num_images: 1,
+      };
+  const comp = await falRun("fal-ai/nano-banana/edit", input, null);
+  const url = comp.images && comp.images[0] && comp.images[0].url;
+  if (!url) throw new Error(setImgSrc ? "Couldn't composite the actor into the scene." : "Couldn't reframe the actor to 16:9.");
+  return url;
 }
 
 // Populate the Motion Magic template dropdown from templates.js.
@@ -515,7 +604,7 @@ function updateTemplateDesc() {
 
 async function generateSource() {
   clearError();
-  if (!charImgSrc) return showError("Create or select an actor first.");
+  if (!compositeUrl) return showError("Stage your shot first — cast an actor above.");
   const tpl = selectedTemplate();
   if (!tpl) return showError("No motion template is available.");
   if (/api\.decart\.ai/i.test(apiBase())) {
@@ -524,62 +613,22 @@ async function generateSource() {
 
   generating = true;
   refreshGenBtn(); refreshImgBtns();
-  setGenStatus(`<div class="spinner"></div><p>Submitting…</p>`, "");
+  setStage("generating");          // film-reel overlay + "Motion Magic in Progress"
+  els.videoWrap.classList.add("hidden");
+  setGenStatus(`<div class="spinner"></div><p>Rolling…</p>`, "");
 
-  // Kling animates a single image. Build the motion prompt from the template +
-  // director + vibe, add the audio cue if wanted, and phrase it in natural terms
-  // (no @Image tokens — those were only for Seedance's two-image referencing).
+  // Kling animates the pre-staged 16:9 composite. Build the motion prompt from the
+  // template + director + vibe, add the audio cue if wanted, and phrase it in
+  // natural terms (no @Image tokens — those were only for Seedance's referencing).
   const wantSound = els.genSound.value === "yes";
   let prompt = composedPrompt();
   if (wantSound && tpl.sound) prompt += ` Audio: ${tpl.sound}.`;
   prompt = prompt.replace(/\bactor\b/gi, "the subject").replace(/\bsetting\b/gi, "the scene");
 
   try {
-    // 1) Produce a single 16:9 source image with Nano Banana. With a Setting,
-    //    composite the actor into the scene; without one, reframe the actor's
-    //    portrait onto a 16:9 studio backdrop. Kling inherits the image's aspect,
-    //    so this makes both the composite image and the video 16:9.
-    let sourceImage;
-    if (setImgSrc) {
-      setGenStatus(`<div class="spinner"></div><p>Placing the actor into the scene (16:9)…</p>`, "");
-      const comp = await falRun("fal-ai/nano-banana/edit", {
-        prompt:
-          "Blend the person from the first image naturally into the scene from the second image as a " +
-          "single photorealistic 16:9 landscape photograph. Set the person back within the environment " +
-          "at a natural full-body distance from the camera, standing on the actual ground in the " +
-          "mid-ground of the scene — not close-up in the foreground. Ground them with realistic contact " +
-          "shadows and any reflections, match the scene's light direction, color temperature, perspective, " +
-          "scale, depth of field, and grain, and let environmental elements sit both in front of and " +
-          "behind them so they are truly embedded in the space. The result must look like a real photo " +
-          "taken in that location, with natural depth — never like a cut-out pasted on a flat backdrop.",
-        image_urls: [charImgSrc, setImgSrc],
-        aspect_ratio: "16:9",
-        num_images: 1,
-      }, null);
-      const compUrl = comp.images && comp.images[0] && comp.images[0].url;
-      if (!compUrl) throw new Error("Couldn't composite the actor into the scene.");
-      sourceImage = compUrl;
-    } else {
-      setGenStatus(`<div class="spinner"></div><p>Framing the actor in 16:9…</p>`, "");
-      const comp = await falRun("fal-ai/nano-banana/edit", {
-        prompt:
-          "Reframe this full-body studio audition photo as a 16:9 landscape image: keep the same " +
-          "person, entire body from head to toe fully in frame, standing centered against a plain " +
-          "seamless white studio background with even, professional lighting.",
-        image_urls: [charImgSrc],
-        aspect_ratio: "16:9",
-        num_images: 1,
-      }, null);
-      const compUrl = comp.images && comp.images[0] && comp.images[0].url;
-      if (!compUrl) throw new Error("Couldn't reframe the actor to 16:9.");
-      sourceImage = compUrl;
-    }
-
-    // 2) Animate the single image with Kling 2.5 Turbo Pro (permits human subjects).
-    setGenStatus(`<div class="spinner"></div><p>Submitting to the video model…</p>`, "");
     const input = {
       prompt,
-      image_url: sourceImage,
+      image_url: compositeUrl,
       duration: els.genDur.value, // "5" or "10"
       cfg_scale: 0.5,
     };
@@ -598,13 +647,14 @@ async function generateSource() {
     const file = new File([blob], "baseline-source.mp4", { type: blob.type || "video/mp4" });
 
     setVideo(file);
-    setGenStatus(`✅ Generated — set as your baseline video below. <video src="${videoUrl}" controls playsinline></video>`, "ok");
+    setGenStatus(`✅ That's a wrap — set as your baseline video below.`, "ok");
   } catch (err) {
     console.error(err);
     setGenStatus("⚠️ " + escapeHtml(err.message), "err");
   } finally {
     generating = false;
-    refreshGenBtn(); refreshImgBtns();
+    refreshImgBtns();
+    queueComposite(); // drop the overlay; rebuild if the selection changed mid-render
   }
 }
 

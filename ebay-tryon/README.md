@@ -90,7 +90,8 @@ input video ─┐
 item 2 ──────┘   … up to 5
 ```
 
-1. **Baseline video** — drop in a short clip (a person, for try-on).
+1. **Baseline video** — cast an actor (and optionally a set); the app stages a 16:9 composite shot,
+   shows it under **Generate baseline video**, then animates it with Kling when you hit the button.
 2. **eBay listings** — paste a URL like `https://www.ebay.com/sch/i.html?_ssn=SELLER`. The proxy
    fetches the page server-side and returns the first 10 listing images. Select up to 5.
 3. **Generate** — one Decart job per selected item runs concurrently; each output appears in its own
