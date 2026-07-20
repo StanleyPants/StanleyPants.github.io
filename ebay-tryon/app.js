@@ -20,6 +20,13 @@ const DEFAULT_API_BASE = "https://salty-osprey-9099.stanleypants.deno.net/v1";
 const ACTOR_ASPECT = "9:16";
 const SETTING_ASPECT = "16:9";
 
+// Actor images are always framed as a professional audition photo — the user
+// only describes the person; this fixed style locks the framing/background.
+const ACTOR_STYLE =
+  "Full-body studio audition photograph: the person stands facing the camera, " +
+  "the entire body from head to toe fully in frame, against a plain seamless " +
+  "white background with even, professional studio lighting.";
+
 // GPT Image uses image_size presets instead of aspect_ratio.
 const gptSize = (ar) => (ar === "16:9" ? "landscape_16_9" : "portrait_16_9");
 
@@ -290,8 +297,11 @@ async function createImage(kind) {
   }
 
   const aspect = kind === "setting" ? SETTING_ASPECT : ACTOR_ASPECT;
+  // The actor is always a fixed full-body studio audition photo; the user's text
+  // only describes who the person is. Settings use the prompt as-is.
+  const finalPrompt = kind === "character" ? `${prompt} ${ACTOR_STYLE}` : prompt;
   const models = TEXT_MODELS.map((m) => ({
-    id: m.id, label: m.label, input: m.input(prompt, aspect),
+    id: m.id, label: m.label, input: m.input(finalPrompt, aspect),
   }));
 
   generating = true;
