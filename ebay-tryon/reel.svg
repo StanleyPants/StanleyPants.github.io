@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="eBay Motion Studio">
+  <!-- film strip tail -->
+  <rect x="40" y="44" width="22" height="13" rx="2" fill="#1b2130" stroke="#2b3446" stroke-width="1.5"/>
+  <rect x="43" y="47" width="4" height="3" rx="0.6" fill="#0f131d"/>
+  <rect x="49" y="47" width="4" height="3" rx="0.6" fill="#0f131d"/>
+  <rect x="55" y="47" width="4" height="3" rx="0.6" fill="#0f131d"/>
+  <rect x="43" y="51.5" width="4" height="3" rx="0.6" fill="#0f131d"/>
+  <rect x="49" y="51.5" width="4" height="3" rx="0.6" fill="#0f131d"/>
+  <rect x="55" y="51.5" width="4" height="3" rx="0.6" fill="#0f131d"/>
+
+  <!-- reel body -->
+  <circle cx="28" cy="28" r="26" fill="#1b2130" stroke="#2b3446" stroke-width="2"/>
+  <circle cx="28" cy="28" r="6.5" fill="#0f131d"/>
+
+  <!-- four eBay-color holes -->
+  <circle cx="28" cy="11.5" r="6" fill="#E53238"/>
+  <circle cx="44.5" cy="28" r="6" fill="#0064D2"/>
+  <circle cx="28" cy="44.5" r="6" fill="#F5AF02"/>
+  <circle cx="11.5" cy="28" r="6" fill="#86B817"/>
+</svg>

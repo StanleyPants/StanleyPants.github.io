@@ -33,7 +33,7 @@ a { color: var(--accent-2); }
 /* Topbar */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 14px; }
-.logo { font-size: 34px; line-height: 1; }
+.logo { width: 40px; height: 40px; display: block; }
 .topbar h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
 .tagline { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
 
