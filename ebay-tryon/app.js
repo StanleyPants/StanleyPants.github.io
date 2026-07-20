@@ -1,4 +1,4 @@
-/* eBay Try-On Video Generator — Decart.ai (client-side).
+/* eBay Motion Studio — Decart.ai (client-side).
  *
  * Flow:
  *   1. Upload one source video.

@@ -1,4 +1,4 @@
-# eBay Try-On Video Generator 🛍️🎬
+# eBay Motion Studio 🎬
 
 Upload **one** video, paste an **eBay** seller/store/search URL, pick **up to 5** listings, and
 generate **one AI video per selected item** — the input video combined with each listing's image as
