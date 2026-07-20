@@ -15,11 +15,8 @@ Step 1 shows the **Actor** and **Setting** side by side, each with a **Create Ne
 - **1a Your Video's Actor** — *Create New Actor* generates **3 candidates from 3 models** (FLUX ultra /
   Nano Banana / GPT Image 2) at 9:16 — pick your favorite. Or *Select From Your Cast* (a saved gallery of
   actors you've made/uploaded). Chosen images are saved to your **cast**.
-- **1b Your Video's Setting** — same **3-candidate** chooser at 16:9, or *Select From Your Set Locations*.
-  Optionally check **"Put the actor in this scene"** to composite the chosen actor into the setting — this
-  generates 3 candidates from image-editing models (FLUX Kontext / Nano Banana / GPT Image 2). When used,
-  the source video animates that single composite; otherwise actor + setting are combined by Seedance
-  reference-to-video.
+- **1b Your Video's Setting** — same **candidate** chooser at 16:9, or *Select From Your Set Locations*.
+  The actor + setting are combined by Seedance reference-to-video.
 
 Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
 - **1b Setting** (optional) — describe a scene/background → another generated image.
@@ -46,7 +43,8 @@ and used as the source video for the try-on step. To enable it:
    the browser); the image is sent as a data URI, so no separate upload step.
 
 The prompt describes the motion (e.g. *"The person turns slowly to face the camera, full-body, soft
-studio lighting"*). Options: resolution, duration, aspect ratio, audio, and a fast/cheaper tier.
+studio lighting"*). Options: duration (8/10/12/15 sec), aspect ratio (portrait/landscape/square), and audio.
+Resolution is fixed at 720p.
 
 ## How it works
 

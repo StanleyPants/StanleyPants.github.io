@@ -68,7 +68,6 @@ const els = {
   charThumb: $("charThumb"),
   charStatus: $("charStatus"),
 
-  setIncludeChar: $("setIncludeChar"),
   setSeg: $("setSeg"),
   setCreatePane: $("setCreatePane"),
   setSelectPane: $("setSelectPane"),
@@ -82,11 +81,9 @@ const els = {
   setStatus: $("setStatus"),
 
   genPrompt: $("genPrompt"),
-  genRes: $("genRes"),
   genDur: $("genDur"),
   genAsp: $("genAsp"),
   genAudio: $("genAudio"),
-  genFast: $("genFast"),
   genBtn: $("genBtn"),
   genStatus: $("genStatus"),
 
@@ -114,7 +111,6 @@ const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-o
 let videoFile = null;
 let charImgSrc = null;         // chosen actor image (data URI or fal URL)
 let setImgSrc = null;          // chosen setting image (optional)
-let settingHasChar = false;    // true when the setting already composites the actor
 let cast = [];                 // saved actors: [{ id, src, label }]
 let setLocations = [];         // saved settings: [{ id, src, label }]
 
@@ -284,10 +280,8 @@ async function createImage(kind) {
   }
 
   const aspect = kind === "setting" ? SETTING_ASPECT : ACTOR_ASPECT;
-  // "Put the actor in this scene" uses image-editing models; otherwise text-to-image.
-  const composite = kind === "setting" && els.setIncludeChar.checked && charImgSrc;
-  const models = (composite ? EDIT_MODELS : TEXT_MODELS).map((m) => ({
-    id: m.id, label: m.label, input: composite ? m.input(prompt, aspect, charImgSrc) : m.input(prompt, aspect),
+  const models = TEXT_MODELS.map((m) => ({
+    id: m.id, label: m.label, input: m.input(prompt, aspect),
   }));
 
   generating = true;
@@ -314,7 +308,6 @@ async function createImage(kind) {
         cells.forEach((c) => c.classList.remove("selected"));
         cells[i].classList.add("selected");
         saveToLib(kind, url, prompt.slice(0, 60));
-        if (kind === "setting") settingHasChar = composite;
         chooseFromLibrary(kind, url);
         setStatusEl(s.status, `✅ Saved to your ${kind === "character" ? "cast" : "set locations"}.`, "ok");
       });
@@ -332,10 +325,6 @@ async function createImage(kind) {
 function chooseFromLibrary(kind, src) {
   const s = slot(kind);
   s.set(src);
-  if (kind === "setting" && src !== null) {
-    // choosing a saved setting from the library is a plain setting (not a composite)
-    // unless it was just created with the actor (createImage sets settingHasChar itself).
-  }
   renderChosen(kind);
   renderLibrary(kind);
   refreshGenBtn();
@@ -352,7 +341,7 @@ function renderChosen(kind) {
   img.src = src; img.alt = s.label;
   const rm = document.createElement("button");
   rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Clear selection";
-  rm.addEventListener("click", () => { s.set(null); if (kind === "setting") settingHasChar = false; renderChosen(kind); renderLibrary(kind); refreshGenBtn(); });
+  rm.addEventListener("click", () => { s.set(null); renderChosen(kind); renderLibrary(kind); refreshGenBtn(); });
   wrap.append(img, rm);
   s.thumb.appendChild(wrap);
 }
@@ -372,11 +361,10 @@ function renderLibrary(kind) {
     rm.addEventListener("click", (e) => {
       e.stopPropagation();
       removeFromLib(kind, item.id);
-      if (s.get() === item.src) { s.set(null); if (kind === "setting") settingHasChar = false; renderChosen(kind); }
+      if (s.get() === item.src) { s.set(null); renderChosen(kind); }
       renderLibrary(kind); refreshGenBtn();
     });
     cell.addEventListener("click", () => {
-      if (kind === "setting") settingHasChar = false; // picking a saved setting = plain setting
       chooseFromLibrary(kind, item.src);
     });
     cell.append(img, rm);
@@ -433,20 +421,18 @@ async function generateSource() {
   refreshGenBtn(); refreshImgBtns();
   setGenStatus(`<div class="spinner"></div><p>Submitting…</p>`, "");
 
-  const fast = els.genFast.checked;
-  // If the setting already composites the character, animate just that one image.
-  // Otherwise: two images -> reference-to-video (@Image1 char, @Image2 setting); one -> image-to-video.
-  const useImages = settingHasChar && setImgSrc ? [setImgSrc] : images;
+  // Two images -> reference-to-video (@Image1 char, @Image2 setting); one -> image-to-video.
+  const useImages = images;
   const combine = useImages.length >= 2;
-  const model = `bytedance/seedance-2.0${fast ? "/fast" : ""}/${combine ? "reference-to-video" : "image-to-video"}`;
+  const model = `bytedance/seedance-2.0/${combine ? "reference-to-video" : "image-to-video"}`;
   const input = {
     prompt: els.genPrompt.value.trim(),
-    resolution: els.genRes.value,
+    resolution: "720p",
     aspect_ratio: els.genAsp.value,
     generate_audio: els.genAudio.checked,
+    duration: els.genDur.value,
   };
   if (combine) input.image_urls = useImages; else input.image_url = useImages[0];
-  if (els.genDur.value !== "auto") input.duration = els.genDur.value;
 
   try {
     const result = await falRun(model, input, (status, secs) =>
