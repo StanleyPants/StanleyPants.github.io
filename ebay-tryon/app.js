@@ -132,6 +132,7 @@ let setLocations = [];         // saved settings: [{ id, src, label }]
 const LS_CAST = "tryon_cast";
 const LS_SETLOC = "tryon_setlocations";
 let generating = false;
+let generatingKind = null; // "character" | "setting" while an image is generating
 let listings = [];             // { title, image }
 let selected = [];             // indices into listings, in click order (max 5)
 let running = false;
@@ -270,8 +271,10 @@ function refreshImgBtns() {
   const bad = generating || /api\.decart\.ai/i.test(apiBase());
   els.charBtn.disabled = bad || els.charPrompt.value.trim().length === 0;
   els.setBtn.disabled = bad || els.setPrompt.value.trim().length === 0;
-  els.charBtn.textContent = generating ? "…" : "🧑‍🎨 Create Actor options";
-  els.setBtn.textContent = generating ? "…" : "🏞️ Create Setting options";
+  // Only the button that's actually generating shows the spinner label; the
+  // other keeps its normal label (just disabled) so it never appears to vanish.
+  els.charBtn.textContent = generatingKind === "character" ? "…" : "🧑‍🎨 Create Actor options";
+  els.setBtn.textContent = generatingKind === "setting" ? "…" : "🏞️ Create Setting options";
 }
 
 // Add an uploaded photo to a library and select it.
@@ -305,6 +308,7 @@ async function createImage(kind) {
   }));
 
   generating = true;
+  generatingKind = kind;
   refreshImgBtns(); refreshGenBtn();
   setStatusEl(s.status, `<div class="spinner"></div><p>Generating ${models.length} options…</p>`, "");
 
@@ -338,6 +342,7 @@ async function createImage(kind) {
 
   if (s.status.textContent.includes("Generating")) setStatusEl(s.status, `Pick your favorite ${s.label} above 👆`, "");
   generating = false;
+  generatingKind = null;
   refreshImgBtns(); refreshGenBtn();
 }
 
