@@ -97,9 +97,8 @@ Redeploy that file to your Deno project, then set **⚙️ API Settings → API 
 
 ## Model
 
-Defaults to **`lucy-vton-2`** (Decart's virtual try-on model) — it puts the item from the reference
-image onto the person in the video. Switch to `lucy-vton-3`, `lucy-clip`, `lucy-2.5`, or
-`lucy-restyle-2` in Settings if you want a different style of reference-guided edit.
+Fixed to **`lucy-latest`** (Decart's current reference-guided video model) — it applies the item from
+each listing's reference image onto the person in the baseline video.
 
 ## Notes & limitations
 
