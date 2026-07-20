@@ -27,22 +27,24 @@ const ACTOR_STYLE =
   "the entire body from head to toe fully in frame, against a plain seamless " +
   "white background with even, professional studio lighting.";
 
-// GPT Image uses image_size presets instead of aspect_ratio.
-const gptSize = (ar) => (ar === "16:9" ? "landscape_16_9" : "portrait_16_9");
+// Both actor and setting images are generated with Nano Banana — four candidates
+// each. To keep the four options from coming back nearly identical, each one gets
+// a distinct variation directive appended to the prompt (same subject/scene, but
+// a different pose/angle/lighting), which meaningfully diversifies the results.
+const NANO_MODEL = "fal-ai/nano-banana";
 
-// Create generates one candidate per model for the user to choose from —
-// four top image models (Black Forest Labs / Google / OpenAI / Google).
-const TEXT_MODELS = [
-  { id: "fal-ai/flux-pro/v1.1-ultra", label: "FLUX ultra",  input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
-  { id: "fal-ai/nano-banana",         label: "Nano Banana", input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
-  { id: "openai/gpt-image-2",         label: "GPT Image 2", input: (p, ar) => ({ prompt: p, image_size: gptSize(ar), quality: "high", num_images: 1 }) },
-  { id: "fal-ai/imagen4/preview/ultra", label: "Imagen 4 Ultra", input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
+const ACTOR_VARIATIONS = [
+  "Standing straight and facing the camera directly, arms relaxed at the sides, neutral expression.",
+  "In a relaxed stance with weight shifted onto one leg and a gentle three-quarter turn toward the camera.",
+  "In a confident pose with one hand on the hip, chin slightly lifted, a subtle smile.",
+  "In a natural, candid stance captured mid-motion at a slight side angle, easy and relaxed.",
 ];
-// "Put the actor in this scene" uses image-editing models.
-const EDIT_MODELS = [
-  { id: "fal-ai/flux-pro/kontext", label: "FLUX Kontext", input: (p, ar, img) => ({ prompt: p, image_url: img, aspect_ratio: ar, guidance_scale: 3.5, num_images: 1 }) },
-  { id: "fal-ai/nano-banana/edit", label: "Nano Banana",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], num_images: 1 }) },
-  { id: "openai/gpt-image-2/edit", label: "GPT Image 2",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], image_size: gptSize(ar), quality: "high", num_images: 1 }) },
+
+const SETTING_VARIATIONS = [
+  "Bright midday light, a wide and symmetrical composition, clear and vibrant.",
+  "Warm late-afternoon light, a slightly lower angle and off-center framing.",
+  "Soft overcast light with a calm, muted palette at eye level.",
+  "Golden-hour light from a gently elevated angle, with long shadows and rich warm tones.",
 ];
 // Motion Magic templates are defined in templates.js (window.VIDEO_TEMPLATES).
 const TEMPLATES = Array.isArray(window.VIDEO_TEMPLATES) ? window.VIDEO_TEMPLATES : [];
@@ -303,8 +305,12 @@ async function createImage(kind) {
   // The actor is always a fixed full-body studio audition photo; the user's text
   // only describes who the person is. Settings use the prompt as-is.
   const finalPrompt = kind === "character" ? `${prompt} ${ACTOR_STYLE}` : prompt;
-  const models = TEXT_MODELS.map((m) => ({
-    id: m.id, label: m.label, input: m.input(finalPrompt, aspect),
+  // Four Nano Banana candidates, each nudged by a distinct variation directive so
+  // the options differ meaningfully instead of coming back nearly identical.
+  const variations = kind === "character" ? ACTOR_VARIATIONS : SETTING_VARIATIONS;
+  const models = variations.map((variation) => ({
+    id: NANO_MODEL,
+    input: { prompt: `${finalPrompt} ${variation}`, aspect_ratio: aspect, num_images: 1 },
   }));
 
   generating = true;
