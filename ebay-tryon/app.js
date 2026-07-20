@@ -557,8 +557,11 @@ async function generateSource() {
   try {
     const result = await falRun(model, input, (status, secs) =>
       setGenStatus(`<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering video" : "In queue"}… (${secs}s)</p>`, ""));
-    const videoUrl = result.video && result.video.url;
-    if (!videoUrl) throw new Error("No video URL in the result.");
+    const videoUrl = extractVideoUrl(result);
+    if (!videoUrl) {
+      console.error("Seedance result:", result);
+      throw new Error("No video URL in the result. Got: " + JSON.stringify(result).slice(0, 400));
+    }
 
     setGenStatus(`<div class="spinner"></div><p>Downloading generated video…</p>`, "");
     const vidRes = await fetch(`${proxyRoot()}/img?url=${encodeURIComponent(videoUrl)}`);
@@ -578,6 +581,32 @@ async function generateSource() {
 }
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// Pull the output video URL from a fal/Seedance result, tolerant of schema
+// differences between model variants (video.url, videos[], data/output wrappers).
+// Falls back to the first video-looking URL found anywhere in the object.
+function extractVideoUrl(r) {
+  if (!r || typeof r !== "object") return null;
+  const first = (v) => (typeof v === "string" ? v : v && v.url) || null;
+  const candidates = [
+    r.video && r.video.url,
+    typeof r.video === "string" ? r.video : null,
+    r.videos && r.videos[0] && first(r.videos[0]),
+    r.output && (r.output.video ? first(r.output.video) : (r.output.videos && first(r.output.videos[0]))),
+    r.data && (r.data.video ? first(r.data.video) : (r.data.videos && first(r.data.videos[0]))),
+    typeof r.url === "string" ? r.url : null,
+  ].filter(Boolean);
+  if (candidates.length) return candidates[0];
+  // Deep fallback: first http(s) URL that looks like a video file.
+  let found = null;
+  try {
+    JSON.stringify(r, (k, v) => {
+      if (!found && typeof v === "string" && /^https?:\/\/\S+\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(v)) found = v;
+      return v;
+    });
+  } catch { /* ignore */ }
+  return found;
+}
 
 // Submit an input to a fal.ai model via the proxy queue, poll to completion,
 // and return the result JSON. onStatus(status, seconds) is called while polling.
