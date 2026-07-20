@@ -41,6 +41,8 @@ const EDIT_MODELS = [
 const TEMPLATES = Array.isArray(window.VIDEO_TEMPLATES) ? window.VIDEO_TEMPLATES : [];
 // Directors (one-sentence style modifiers) are defined in directors.js.
 const DIRECTORS = Array.isArray(window.DIRECTOR_DEFINITIONS) ? window.DIRECTOR_DEFINITIONS : [];
+// Vibes (one-sentence mood modifiers) are defined in vibes.js.
+const VIBES = Array.isArray(window.VIBE_DEFINITIONS) ? window.VIBE_DEFINITIONS : [];
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
@@ -86,6 +88,7 @@ const els = {
 
   genTemplate: $("genTemplate"),
   genDirector: $("genDirector"),
+  genVibe: $("genVibe"),
   genTemplateDesc: $("genTemplateDesc"),
   genSound: $("genSound"),
   genDur: $("genDur"),
@@ -225,8 +228,10 @@ function setupSourceImages() {
   els.genBtn.addEventListener("click", generateSource);
   els.genTemplate.addEventListener("change", updateTemplateDesc);
   els.genDirector.addEventListener("change", updateTemplateDesc);
+  els.genVibe.addEventListener("change", updateTemplateDesc);
   renderTemplates();
   renderDirectors();
+  renderVibes();
 
   renderLibrary("character");
   renderLibrary("setting");
@@ -448,17 +453,39 @@ function selectedTemplate() {
   return TEMPLATES.find((t) => t.id === els.genTemplate.value) || TEMPLATES[0] || null;
 }
 
+// Populate the Vibe dropdown from vibes.js.
+function renderVibes() {
+  if (!els.genVibe) return;
+  els.genVibe.innerHTML = "";
+  VIBES.forEach((v) => {
+    const opt = document.createElement("option");
+    opt.value = v.id;
+    opt.textContent = v.label;
+    els.genVibe.appendChild(opt);
+  });
+  updateTemplateDesc();
+}
+
 // Return the currently selected director object (falls back to the first, if any).
 function selectedDirector() {
   return DIRECTORS.find((d) => d.id === els.genDirector.value) || DIRECTORS[0] || null;
 }
 
-// Compose the prompt from the selected template + the director's style modifier.
+// Return the currently selected vibe object (falls back to the first, if any).
+function selectedVibe() {
+  return VIBES.find((v) => v.id === els.genVibe.value) || VIBES[0] || null;
+}
+
+// Compose the prompt: template + director's style modifier + vibe's mood modifier.
 function composedPrompt() {
   const t = selectedTemplate();
   if (!t) return "";
   const d = selectedDirector();
-  return d ? `${t.prompt} ${d.modifier}` : t.prompt;
+  const v = selectedVibe();
+  let out = t.prompt;
+  if (d) out += ` ${d.modifier}`;
+  if (v) out += ` ${v.modifier}`;
+  return out;
 }
 
 // Show the composed template + director description beneath the dropdowns.
