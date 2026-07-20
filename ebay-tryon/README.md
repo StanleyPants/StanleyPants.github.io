@@ -19,23 +19,23 @@ Step 1 shows the **Actor** and **Setting** side by side, each with a **Create Ne
   are saved to your **cast**.
 - **1b Your Video's Setting** — same **4-candidate** chooser (varied lighting/angle) at 16:9, or
   *Select From Your Set Locations*.
-  The actor + setting are combined by Seedance reference-to-video.
 
 Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
 - **1b Setting** (optional) — describe a scene/background → another generated image.
 - **1c Motion Magic** — instead of typing a prompt, pick a **Template**, a **Director**, and a **Vibe**,
   and choose **Include Sound** (Yes/No). Templates live in [`templates.js`](templates.js), directors in
-  [`directors.js`](directors.js), and vibes in [`vibes.js`](vibes.js) (see below). Seedance combines the
-  images: with both it uses **reference-to-video**, with only a character it uses **image-to-video**.
-  Each template refers to **Actor** / **Setting**, which the app encodes to Seedance's `@Image1` /
-  `@Image2` reference tokens (actor first, then setting) before submitting.
+  [`directors.js`](directors.js), and vibes in [`vibes.js`](vibes.js) (see below). The baseline video is
+  made with **Kling 2.5 Turbo Pro** image-to-video (it permits human subjects, unlike Seedance). Kling
+  animates a **single** image: if you chose a Setting, the app first composites the actor into that scene
+  with **Nano Banana** (image edit), then animates the composite; with only an actor, it animates the
+  actor image directly.
 
 ### Motion Magic templates (`templates.js`)
 
 The baseline-video motion is defined by templates in `templates.js` — edit that one file to add or
 change them (no app-code changes needed). Each entry has an `id`, a dropdown `label`, a `prompt`
 (referring to `Actor` / `Setting`), and a `sound` description. The `sound` is appended to the prompt
-as an audio cue and turns on Seedance audio generation **only** when the **Include Sound** dropdown is
+as an audio cue and turns on video audio generation **only** when the **Include Sound** dropdown is
 set to **Yes**.
 
 ### Directors (`directors.js`)
@@ -56,25 +56,27 @@ chosen vibe's `modifier` after the director's modifier (before the audio cue). S
 
 So the full chain is:
 
-**character (+ setting) images → baseline video (Seedance) → pick eBay items → try-on videos.**
+**character (+ setting) images → baseline video (Kling) → pick eBay items → try-on videos.**
 
 Each image can also be **uploaded** instead of generated. Uses the same `FAL_KEY` and `/fal` proxy
 passthrough as the video step — no extra setup. (OpenArt has no public API, so fal is used for image
 generation.)
 
-## Optional step 0: generate the baseline video from an image (fal.ai Seedance 2.0)
+## Optional step 0: generate the baseline video from an image (fal.ai Kling 2.5)
 
-Instead of uploading a video, you can upload **one image** + pick a motion **template** and generate the
-baseline video with **Seedance 2.0 image-to-video** (via [fal.ai](https://fal.ai)). The generated video
-is downloaded and used as the baseline video for the try-on step. To enable it:
+Instead of uploading a video, you can build an actor (+ optional setting) and generate the baseline video
+with **Kling 2.5 Turbo Pro image-to-video** (via [fal.ai](https://fal.ai)) — it permits human subjects,
+which Seedance does not. The generated video is downloaded and used as the baseline video for the try-on
+step. To enable it:
 
 1. Get a fal.ai API key from [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys).
 2. In your Deno Deploy project → **Settings → Environment Variables**, add `FAL_KEY` = your fal key.
 3. Redeploy the proxy. The proxy forwards to `queue.fal.run` with the key injected (never exposed to
    the browser); the image is sent as a data URI, so no separate upload step.
 
-The selected **template** describes the motion (and its sound). Options: duration (8/10/12/15 sec),
-aspect ratio (portrait/landscape/square), and Include Sound (Yes/No). Resolution is fixed at 720p.
+The selected **template** describes the motion (and its sound). Options: duration (5 or 10 sec),
+aspect ratio (portrait/landscape/square — applied when compositing the actor into a setting), and
+Include Sound (Yes/No).
 
 ## How it works
 

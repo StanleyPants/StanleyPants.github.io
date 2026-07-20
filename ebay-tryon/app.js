@@ -516,8 +516,7 @@ function updateTemplateDesc() {
 
 async function generateSource() {
   clearError();
-  const images = [charImgSrc, setImgSrc].filter(Boolean);
-  if (!images.length) return showError("Create or select an actor first.");
+  if (!charImgSrc) return showError("Create or select an actor first.");
   const tpl = selectedTemplate();
   if (!tpl) return showError("No motion template is available.");
   if (/api\.decart\.ai/i.test(apiBase())) {
@@ -528,38 +527,49 @@ async function generateSource() {
   refreshGenBtn(); refreshImgBtns();
   setGenStatus(`<div class="spinner"></div><p>Submitting…</p>`, "");
 
-  // Two images -> reference-to-video; one -> image-to-video.
-  const useImages = images;
-  const combine = useImages.length >= 2;
-  // Build the prompt from the selected template + the director's style modifier.
-  // Templates refer to the actor as "Actor" and the scene as "Setting"; Seedance's
-  // reference-to-video addresses images as @Image1/@Image2 in image_urls order
-  // (actor first, then setting), so encode those names to the reference tokens.
-  // The template's sound is added as an audio cue only when "Include Sound" is Yes.
+  // Kling animates a single image. Build the motion prompt from the template +
+  // director + vibe, add the audio cue if wanted, and phrase it in natural terms
+  // (no @Image tokens — those were only for Seedance's two-image referencing).
   const wantSound = els.genSound.value === "yes";
+  const aspect = els.genAsp.value;
   let prompt = composedPrompt();
   if (wantSound && tpl.sound) prompt += ` Audio: ${tpl.sound}.`;
-  if (combine) {
-    prompt = prompt
-      .replace(/\bactor\b/gi, `@Image${useImages.indexOf(charImgSrc) + 1}`)
-      .replace(/\bsetting\b/gi, `@Image${useImages.indexOf(setImgSrc) + 1}`);
-  }
-  const model = `bytedance/seedance-2.0/${combine ? "reference-to-video" : "image-to-video"}`;
-  const input = {
-    prompt,
-    resolution: "720p",
-    aspect_ratio: els.genAsp.value,
-    generate_audio: wantSound,
-    duration: els.genDur.value,
-  };
-  if (combine) input.image_urls = useImages; else input.image_url = useImages[0];
+  prompt = prompt.replace(/\bactor\b/gi, "the subject").replace(/\bsetting\b/gi, "the scene");
 
   try {
-    const result = await falRun(model, input, (status, secs) =>
+    // 1) If a Setting is chosen, composite the actor into it (Nano Banana edit),
+    //    producing one image at the chosen aspect ratio. Otherwise animate the
+    //    actor image directly (native 9:16).
+    let sourceImage = charImgSrc;
+    if (setImgSrc) {
+      setGenStatus(`<div class="spinner"></div><p>Placing the actor into the scene…</p>`, "");
+      const comp = await falRun("fal-ai/nano-banana/edit", {
+        prompt:
+          "Composite the person from the first image into the scene from the second image as a " +
+          "single photorealistic image: the full-body person standing naturally in the environment, " +
+          "matching the scene's lighting, perspective, and scale.",
+        image_urls: [charImgSrc, setImgSrc],
+        aspect_ratio: aspect,
+        num_images: 1,
+      }, null);
+      const compUrl = comp.images && comp.images[0] && comp.images[0].url;
+      if (!compUrl) throw new Error("Couldn't composite the actor into the scene.");
+      sourceImage = compUrl;
+    }
+
+    // 2) Animate the single image with Kling 2.5 Turbo Pro (permits human subjects).
+    setGenStatus(`<div class="spinner"></div><p>Submitting to the video model…</p>`, "");
+    const input = {
+      prompt,
+      image_url: sourceImage,
+      duration: els.genDur.value, // "5" or "10"
+      cfg_scale: 0.5,
+    };
+    const result = await falRun("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", input, (status, secs) =>
       setGenStatus(`<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering video" : "In queue"}… (${secs}s)</p>`, ""));
     const videoUrl = extractVideoUrl(result);
     if (!videoUrl) {
-      console.error("Seedance result:", result);
+      console.error("Kling result:", result);
       throw new Error("No video URL in the result. Got: " + JSON.stringify(result).slice(0, 400));
     }
 
@@ -567,7 +577,7 @@ async function generateSource() {
     const vidRes = await fetch(`${proxyRoot()}/img?url=${encodeURIComponent(videoUrl)}`);
     if (!vidRes.ok) throw new Error(`Couldn't download the generated video (HTTP ${vidRes.status}).`);
     const blob = await vidRes.blob();
-    const file = new File([blob], "seedance-source.mp4", { type: blob.type || "video/mp4" });
+    const file = new File([blob], "baseline-source.mp4", { type: blob.type || "video/mp4" });
 
     setVideo(file);
     setGenStatus(`✅ Generated — set as your baseline video below. <video src="${videoUrl}" controls playsinline></video>`, "ok");
