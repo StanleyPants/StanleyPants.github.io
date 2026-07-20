@@ -6,7 +6,7 @@
   <title>eBay Motion Studio</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
   <link rel="icon" href="reel.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=20" />
+  <link rel="stylesheet" href="styles.css?v=21" />
 </head>
 <body>
   <div class="app">
@@ -134,22 +134,23 @@
         </div>
         <p id="genTemplateDesc" class="hint"></p>
         <!-- 1d. Stage the shot & generate the baseline video -->
-        <label class="field-label" style="margin-top:36px;">Generate baseline video</label>
-        <div id="stage" class="stage hidden">
-          <div id="stageSpinner" class="stage-spinner hidden"><div class="spinner"></div><p>Staging your shot…</p></div>
-          <img id="compositeImg" class="stage-img hidden" alt="Your staged shot" />
-          <div id="stageOverlay" class="stage-overlay hidden" aria-hidden="true">
-            <span class="reel-sweep"></span>
-            <span class="reel-perf top"></span>
-            <span class="reel-perf bottom"></span>
-            <span class="stage-caption">🎬 Motion Magic in Progress</span>
+        <div class="gen-section">
+          <div id="stage" class="stage hidden">
+            <div id="stageSpinner" class="stage-spinner hidden"><div class="spinner"></div><p>Staging your shot…</p></div>
+            <img id="compositeImg" class="stage-img hidden" alt="Your staged shot" />
+            <div id="stageOverlay" class="stage-overlay hidden" aria-hidden="true">
+              <span class="reel-sweep"></span>
+              <span class="reel-perf top"></span>
+              <span class="reel-perf bottom"></span>
+              <span class="stage-caption">🎬 Motion Magic in Progress</span>
+            </div>
           </div>
-        </div>
-        <p id="stageHint" class="hint">Cast an actor (and optionally choose a set) above — your shot will be staged here.</p>
-        <button id="genBtn" class="ghost-btn" type="button" disabled>🎬 Generate baseline video</button>
-        <p id="genStatus" class="gen-status hidden"></p>
-        <div id="videoWrap" class="video-wrap hidden">
-          <video id="baselineVideo" class="baseline-video" controls playsinline></video>
+          <p id="stageHint" class="hint hidden"></p>
+          <button id="genBtn" class="ghost-btn" type="button" disabled>🎬 Generate baseline video</button>
+          <p id="genStatus" class="gen-status hidden"></p>
+          <div id="videoWrap" class="video-wrap hidden">
+            <video id="baselineVideo" class="baseline-video" controls playsinline></video>
+          </div>
         </div>
       </section>
 
@@ -226,6 +227,6 @@
   <script src="templates.js?v=4"></script>
   <script src="directors.js?v=1"></script>
   <script src="vibes.js?v=1"></script>
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>

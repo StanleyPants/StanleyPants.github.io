@@ -58,8 +58,10 @@ a { color: var(--accent-2); }
 #genTemplateDesc { margin-top: 10px; line-height: 1.55; }
 #genTemplateDesc:not(:empty) { padding: 10px 12px; border-left: 2px solid var(--accent); background: rgba(124,92,255,0.06); border-radius: 6px; }
 
+/* Stage & generate area */
+.gen-section { margin-top: 32px; }
 /* Stage: the composited shot + film-reel processing overlay */
-.stage { position: relative; margin: 10px 0; max-width: 640px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #0b0e16; }
+.stage { position: relative; margin: 0 0 10px; max-width: 640px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #0b0e16; }
 .stage-img { display: block; width: 100%; height: auto; }
 .stage-spinner { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 16 / 9; color: var(--muted); font-size: 13px; }
 .stage-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(8,10,16,0.42); overflow: hidden; }
