@@ -20,10 +20,19 @@ Step 1 shows the **Actor** and **Setting** side by side, each with a **Create Ne
 
 Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
 - **1b Setting** (optional) — describe a scene/background → another generated image.
-- **1c Baseline video** — Seedance combines them: with both images it uses **reference-to-video**,
-  with only a character it uses **image-to-video**. Write the motion prompt using the words
-  **Actor** and **Setting** — the app encodes them to Seedance's `@Image1` / `@Image2` reference
-  tokens (actor first, then setting) before submitting.
+- **1c Motion Magic** — instead of typing a prompt, pick a **Template** from the dropdown and choose
+  **Include Sound** (Yes/No). Templates live in [`templates.js`](templates.js) (see below). Seedance
+  combines the images: with both it uses **reference-to-video**, with only a character it uses
+  **image-to-video**. Each template refers to **Actor** / **Setting**, which the app encodes to
+  Seedance's `@Image1` / `@Image2` reference tokens (actor first, then setting) before submitting.
+
+### Motion Magic templates (`templates.js`)
+
+The baseline-video motion is defined by templates in `templates.js` — edit that one file to add or
+change them (no app-code changes needed). Each entry has an `id`, a dropdown `label`, a `prompt`
+(referring to `Actor` / `Setting`), and a `sound` description. The `sound` is appended to the prompt
+as an audio cue and turns on Seedance audio generation **only** when the **Include Sound** dropdown is
+set to **Yes**.
 
 So the full chain is:
 
@@ -35,18 +44,17 @@ generation.)
 
 ## Optional step 0: generate the baseline video from an image (fal.ai Seedance 2.0)
 
-Instead of uploading a video, you can upload **one image** + a prompt and generate the baseline video
-with **Seedance 2.0 image-to-video** (via [fal.ai](https://fal.ai)). The generated video is downloaded
-and used as the baseline video for the try-on step. To enable it:
+Instead of uploading a video, you can upload **one image** + pick a motion **template** and generate the
+baseline video with **Seedance 2.0 image-to-video** (via [fal.ai](https://fal.ai)). The generated video
+is downloaded and used as the baseline video for the try-on step. To enable it:
 
 1. Get a fal.ai API key from [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys).
 2. In your Deno Deploy project → **Settings → Environment Variables**, add `FAL_KEY` = your fal key.
 3. Redeploy the proxy. The proxy forwards to `queue.fal.run` with the key injected (never exposed to
    the browser); the image is sent as a data URI, so no separate upload step.
 
-The prompt describes the motion (e.g. *"The person turns slowly to face the camera, full-body, soft
-studio lighting"*). Options: duration (8/10/12/15 sec), aspect ratio (portrait/landscape/square), and audio.
-Resolution is fixed at 720p.
+The selected **template** describes the motion (and its sound). Options: duration (8/10/12/15 sec),
+aspect ratio (portrait/landscape/square), and Include Sound (Yes/No). Resolution is fixed at 720p.
 
 ## How it works
 
@@ -115,4 +123,6 @@ each listing's reference image onto the person in the baseline video.
 ## Files
 
 - `index.html` · `styles.css` · `app.js` — the app
+- `templates.js` — Motion Magic template definitions (edit to change the motion presets)
+- `reel.svg` — app icon
 - Shared proxy: `../video-editor/proxy/decart-proxy.deno.js`

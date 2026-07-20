@@ -37,20 +37,8 @@ const EDIT_MODELS = [
   { id: "fal-ai/nano-banana/edit", label: "Nano Banana",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], num_images: 1 }) },
   { id: "openai/gpt-image-2/edit", label: "GPT Image 2",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], image_size: gptSize(ar), quality: "high", num_images: 1 }) },
 ];
-// Clickable starter prompts for the Motion Magic field — refer to Actor/Setting
-// by name (encoded to @Image1/@Image2 on submit). Users can chain several.
-const STARTER_PROMPTS = [
-  "Actor walks slowly toward the camera, full-body, soft daylight.",
-  "Actor turns to face the camera and smiles.",
-  "Camera slowly orbits around Actor.",
-  "Actor strolls through Setting, camera tracking alongside.",
-  "A gentle breeze moves Actor's hair and clothing.",
-  "Slow-motion as Actor spins to show off the outfit.",
-  "Actor poses confidently with a subtle head tilt.",
-  "Camera pushes in from a wide shot to a medium shot of Actor.",
-  "Actor walks past Setting at golden hour, warm backlight.",
-  "Handheld follow shot behind Actor moving forward.",
-];
+// Motion Magic templates are defined in templates.js (window.VIDEO_TEMPLATES).
+const TEMPLATES = Array.isArray(window.VIDEO_TEMPLATES) ? window.VIDEO_TEMPLATES : [];
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
@@ -94,11 +82,11 @@ const els = {
   setThumb: $("setThumb"),
   setStatus: $("setStatus"),
 
-  genPrompt: $("genPrompt"),
-  starterPrompts: $("starterPrompts"),
+  genTemplate: $("genTemplate"),
+  genTemplateDesc: $("genTemplateDesc"),
+  genSound: $("genSound"),
   genDur: $("genDur"),
   genAsp: $("genAsp"),
-  genAudio: $("genAudio"),
   genBtn: $("genBtn"),
   genStatus: $("genStatus"),
 
@@ -231,9 +219,9 @@ function setupSourceImages() {
   setupSeg(els.setSeg, els.setCreatePane, els.setSelectPane, () => renderLibrary("setting"));
 
   // Video
-  els.genPrompt.addEventListener("input", refreshGenBtn);
   els.genBtn.addEventListener("click", generateSource);
-  renderStarterPrompts();
+  els.genTemplate.addEventListener("change", updateTemplateDesc);
+  renderTemplates();
 
   renderLibrary("character");
   renderLibrary("setting");
@@ -414,39 +402,46 @@ function persistLib(kind) {
 }
 
 function refreshGenBtn() {
-  const ready = !generating && !!charImgSrc &&
-                els.genPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
+  const ready = !generating && !!charImgSrc && TEMPLATES.length > 0 &&
+                !/api\.decart\.ai/i.test(apiBase());
   els.genBtn.disabled = !ready;
   els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate baseline video";
 }
 
-// Render the clickable starter-prompt chips under the Motion Magic field.
-function renderStarterPrompts() {
-  if (!els.starterPrompts) return;
-  els.starterPrompts.innerHTML = "";
-  STARTER_PROMPTS.forEach((text) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "chip";
-    btn.textContent = text;
-    btn.addEventListener("click", () => appendStarterPrompt(text));
-    els.starterPrompts.appendChild(btn);
+// Populate the Motion Magic template dropdown from templates.js.
+function renderTemplates() {
+  if (!els.genTemplate) return;
+  els.genTemplate.innerHTML = "";
+  if (!TEMPLATES.length) {
+    els.genTemplateDesc.textContent = "No templates defined (templates.js failed to load).";
+    return;
+  }
+  TEMPLATES.forEach((t) => {
+    const opt = document.createElement("option");
+    opt.value = t.id;
+    opt.textContent = t.label;
+    els.genTemplate.appendChild(opt);
   });
+  updateTemplateDesc();
 }
 
-// Append a starter prompt to whatever's already in the field (space-separated).
-function appendStarterPrompt(text) {
-  const cur = els.genPrompt.value.trim();
-  els.genPrompt.value = cur ? `${cur} ${text}` : text;
-  refreshGenBtn();
-  els.genPrompt.focus();
+// Return the currently selected template object (falls back to the first).
+function selectedTemplate() {
+  return TEMPLATES.find((t) => t.id === els.genTemplate.value) || TEMPLATES[0] || null;
+}
+
+// Show a short description of the selected template beneath the dropdown.
+function updateTemplateDesc() {
+  const t = selectedTemplate();
+  els.genTemplateDesc.textContent = t ? t.prompt : "";
 }
 
 async function generateSource() {
   clearError();
   const images = [charImgSrc, setImgSrc].filter(Boolean);
   if (!images.length) return showError("Create or select an actor first.");
-  if (!els.genPrompt.value.trim()) return showError("Write a prompt for the video.");
+  const tpl = selectedTemplate();
+  if (!tpl) return showError("No motion template is available.");
   if (/api\.decart\.ai/i.test(apiBase())) {
     return showError("Set the API base URL to your Deno proxy (Settings) — it talks to fal.ai.");
   }
@@ -458,10 +453,14 @@ async function generateSource() {
   // Two images -> reference-to-video; one -> image-to-video.
   const useImages = images;
   const combine = useImages.length >= 2;
-  // Users write "Actor" / "Setting" in the prompt; Seedance's reference-to-video
-  // addresses images as @Image1/@Image2 in image_urls order (actor first, then
-  // setting). Encode the friendly names to the reference tokens here.
-  let prompt = els.genPrompt.value.trim();
+  // Build the prompt from the selected template. Templates refer to the actor as
+  // "Actor" and the scene as "Setting"; Seedance's reference-to-video addresses
+  // images as @Image1/@Image2 in image_urls order (actor first, then setting),
+  // so encode those names to the reference tokens. The template's sound is added
+  // as an audio cue only when "Include Sound" is Yes.
+  const wantSound = els.genSound.value === "yes";
+  let prompt = tpl.prompt;
+  if (wantSound && tpl.sound) prompt += ` Audio: ${tpl.sound}.`;
   if (combine) {
     prompt = prompt
       .replace(/\bactor\b/gi, `@Image${useImages.indexOf(charImgSrc) + 1}`)
@@ -472,7 +471,7 @@ async function generateSource() {
     prompt,
     resolution: "720p",
     aspect_ratio: els.genAsp.value,
-    generate_audio: els.genAudio.checked,
+    generate_audio: wantSound,
     duration: els.genDur.value,
   };
   if (combine) input.image_urls = useImages; else input.image_url = useImages[0];
