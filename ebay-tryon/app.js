@@ -45,6 +45,8 @@ const els = {
   charRefBtn: $("charRefBtn"),
   charRefFile: $("charRefFile"),
   charRefThumb: $("charRefThumb"),
+  faceMatch: $("faceMatch"),
+  setIncludeChar: $("setIncludeChar"),
 
   setPrompt: $("setPrompt"),
   setBtn: $("setBtn"),
@@ -85,8 +87,9 @@ const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-o
 
 let videoFile = null;
 let charImgSrc = null;         // character image (data URI or fal URL)
-let charRefSrc = null;         // optional reference photo → identity-preserving generation
+let charRefs = [];             // up to 3 reference photos → identity-preserving generation
 let setImgSrc = null;          // setting image (optional)
+let settingHasChar = false;    // true when the setting already composites the character
 let generating = false;
 let listings = [];             // { title, image }
 let selected = [];             // indices into listings, in click order (max 5)
@@ -177,12 +180,15 @@ function setupSourceImages() {
   els.charBtn.addEventListener("click", () => createImage("character"));
   els.charUploadBtn.addEventListener("click", () => els.charFile.click());
   els.charFile.addEventListener("change", (e) => uploadInto("character", e.target.files));
-  // Character reference photo (identity preservation)
+  // Character reference photos (identity preservation, up to 3)
   els.charRefBtn.addEventListener("click", () => els.charRefFile.click());
   els.charRefFile.addEventListener("change", async (e) => {
-    const f = Array.from(e.target.files || []).find((x) => x.type.startsWith("image/"));
-    if (f) { charRefSrc = await readAsDataURL(f); renderCharRef(); }
+    for (const f of Array.from(e.target.files || [])) {
+      if (charRefs.length >= 3) break;
+      if (f.type.startsWith("image/")) charRefs.push(await readAsDataURL(f));
+    }
     els.charRefFile.value = "";
+    renderCharRef();
   });
   // Setting slot
   els.setPrompt.addEventListener("input", refreshImgBtns);
@@ -214,6 +220,7 @@ async function uploadInto(kind, fileList) {
   const f = Array.from(fileList || []).find((x) => x.type.startsWith("image/"));
   if (f) {
     s.set(await readAsDataURL(f));
+    if (kind === "setting") settingHasChar = false; // uploaded plain setting
     renderSlot(kind);
     setStatusEl(s.status, `✅ ${cap(s.label)} image added.`, "ok");
   }
@@ -231,26 +238,44 @@ async function createImage(kind) {
 
   generating = true;
   refreshImgBtns(); refreshGenBtn();
-  const usingRef = kind === "character" && charRefSrc;
-  setStatusEl(s.status, `<div class="spinner"></div><p>Creating ${s.label}${usingRef ? " from reference" : ""}…</p>`, "");
 
-  // With a reference photo, use FLUX Kontext (identity-preserving); otherwise plain text-to-image.
-  let model, input;
-  if (usingRef) {
+  // Decide the model + input:
+  //  - character with reference photo(s) -> FLUX Kontext (single or multi), identity-preserving
+  //  - setting with "put character in scene" -> Kontext using the character image
+  //  - otherwise -> plain FLUX text-to-image
+  const guidance = faceGuidance();
+  let model, input, note = "";
+  let usedCharInSetting = false;
+
+  if (kind === "character" && charRefs.length >= 1) {
+    note = " from reference";
+    if (charRefs.length === 1) {
+      model = "fal-ai/flux-pro/kontext";
+      input = { prompt: s.prompt.value.trim(), image_url: charRefs[0], guidance_scale: guidance, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
+    } else {
+      model = "fal-ai/flux-pro/kontext/multi";
+      input = { prompt: s.prompt.value.trim(), image_urls: charRefs, guidance_scale: guidance, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
+    }
+  } else if (kind === "setting" && els.setIncludeChar.checked && charImgSrc) {
+    note = " with character";
+    usedCharInSetting = true;
     model = "fal-ai/flux-pro/kontext";
-    input = { prompt: s.prompt.value.trim(), image_url: charRefSrc, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
+    input = { prompt: s.prompt.value.trim(), image_url: charImgSrc, guidance_scale: guidance, num_images: 1, aspect_ratio: sizeToAspect(els.charSize.value) };
   } else {
     model = els.charModel.value;
     input = { prompt: s.prompt.value.trim(), image_size: els.charSize.value, num_images: 1 };
   }
+
+  setStatusEl(s.status, `<div class="spinner"></div><p>Creating ${s.label}${note}…</p>`, "");
   try {
     const result = await falRun(model, input, (status, secs) =>
       setStatusEl(s.status, `<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering" : "In queue"}… (${secs}s)</p>`, ""));
     const imageUrl = result.images && result.images[0] && result.images[0].url;
     if (!imageUrl) throw new Error("No image URL in the result.");
     s.set(imageUrl); // fal image URL — Seedance accepts it directly
+    if (kind === "setting") settingHasChar = usedCharInSetting;
     renderSlot(kind);
-    setStatusEl(s.status, `✅ ${cap(s.label)} created${usingRef ? " (from reference)" : ""}.`, "ok");
+    setStatusEl(s.status, `✅ ${cap(s.label)} created${note}.`, "ok");
   } catch (err) {
     console.error(err);
     setStatusEl(s.status, "⚠️ " + escapeHtml(err.message), "err");
@@ -272,7 +297,7 @@ function renderSlot(kind) {
   img.alt = s.label;
   const rm = document.createElement("button");
   rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Remove";
-  rm.addEventListener("click", () => { s.set(null); s.thumb.innerHTML = ""; s.status.classList.add("hidden"); refreshGenBtn(); });
+  rm.addEventListener("click", () => { s.set(null); if (kind === "setting") settingHasChar = false; s.thumb.innerHTML = ""; s.status.classList.add("hidden"); refreshGenBtn(); });
   wrap.append(img, rm);
   s.thumb.appendChild(wrap);
   refreshGenBtn();
@@ -299,8 +324,10 @@ async function generateSource() {
   setGenStatus(`<div class="spinner"></div><p>Submitting to Seedance 2.0…</p>`, "");
 
   const fast = els.genFast.checked;
-  // Two images -> combine via reference-to-video (@Image1 char, @Image2 setting); one -> image-to-video.
-  const combine = images.length >= 2;
+  // If the setting already composites the character, animate just that one image.
+  // Otherwise: two images -> reference-to-video (@Image1 char, @Image2 setting); one -> image-to-video.
+  const useImages = settingHasChar && setImgSrc ? [setImgSrc] : images;
+  const combine = useImages.length >= 2;
   const model = `bytedance/seedance-2.0${fast ? "/fast" : ""}/${combine ? "reference-to-video" : "image-to-video"}`;
   const input = {
     prompt: els.genPrompt.value.trim(),
@@ -308,7 +335,7 @@ async function generateSource() {
     aspect_ratio: els.genAsp.value,
     generate_audio: els.genAudio.checked,
   };
-  if (combine) input.image_urls = images; else input.image_url = images[0];
+  if (combine) input.image_urls = useImages; else input.image_url = useImages[0];
   if (els.genDur.value !== "auto") input.duration = els.genDur.value;
 
   try {
@@ -338,16 +365,23 @@ function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function renderCharRef() {
   els.charRefThumb.innerHTML = "";
-  if (!charRefSrc) return;
-  const wrap = document.createElement("div");
-  wrap.className = "img-thumb";
-  const img = document.createElement("img");
-  img.src = charRefSrc; img.alt = "reference";
-  const rm = document.createElement("button");
-  rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Remove reference";
-  rm.addEventListener("click", () => { charRefSrc = null; els.charRefThumb.innerHTML = ""; });
-  wrap.append(img, rm);
-  els.charRefThumb.appendChild(wrap);
+  charRefs.forEach((src, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "img-thumb";
+    const img = document.createElement("img");
+    img.src = src; img.alt = `reference ${i + 1}`;
+    const rm = document.createElement("button");
+    rm.className = "rm"; rm.type = "button"; rm.textContent = "×"; rm.title = "Remove reference";
+    rm.addEventListener("click", () => { charRefs.splice(i, 1); renderCharRef(); });
+    wrap.append(img, rm);
+    els.charRefThumb.appendChild(wrap);
+  });
+}
+
+// Face-match slider (0=loose .. 100=strong) -> Kontext guidance_scale (~6 loose .. 1.5 strong).
+function faceGuidance() {
+  const m = Number(els.faceMatch && els.faceMatch.value) || 60;
+  return Math.round((6 - (m / 100) * 4.5) * 10) / 10;
 }
 
 // Map a FLUX text-to-image image_size to the nearest Kontext aspect_ratio.
