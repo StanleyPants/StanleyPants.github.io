@@ -29,7 +29,7 @@ const TEXT_MODELS = [
   { id: "fal-ai/flux-pro/v1.1-ultra", label: "FLUX ultra",  input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
   { id: "fal-ai/nano-banana",         label: "Nano Banana", input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
   { id: "openai/gpt-image-2",         label: "GPT Image 2", input: (p, ar) => ({ prompt: p, image_size: gptSize(ar), quality: "high", num_images: 1 }) },
-  { id: "fal-ai/imagen4/preview",     label: "Imagen 4",    input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
+  { id: "fal-ai/imagen4/preview/ultra", label: "Imagen 4 Ultra", input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
 ];
 // "Put the actor in this scene" uses image-editing models.
 const EDIT_MODELS = [
