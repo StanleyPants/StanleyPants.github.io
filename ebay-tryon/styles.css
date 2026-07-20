@@ -98,7 +98,7 @@ a { color: var(--accent-2); }
 .picker-item .rm { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; border: none; background: rgba(0,0,0,0.65); color: #fff; font-size: 11px; line-height: 1; cursor: pointer; }
 
 /* Candidate chooser (3 options per Create) */
-.cand-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.cand-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
 .cand-grid:empty { display: none; }
 .cand-item { position: relative; border: 2px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; background: #11151f; aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center; }
 .cand-item.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px rgba(34,211,238,0.35); }

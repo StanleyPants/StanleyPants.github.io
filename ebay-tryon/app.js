@@ -23,12 +23,13 @@ const SETTING_ASPECT = "16:9";
 // GPT Image uses image_size presets instead of aspect_ratio.
 const gptSize = (ar) => (ar === "16:9" ? "landscape_16_9" : "portrait_16_9");
 
-// Create generates 3 candidates (one per model) for the user to choose from —
-// three different top image models (Black Forest Labs / Google / OpenAI).
+// Create generates one candidate per model for the user to choose from —
+// four top image models (Black Forest Labs / Google / OpenAI / Google).
 const TEXT_MODELS = [
   { id: "fal-ai/flux-pro/v1.1-ultra", label: "FLUX ultra",  input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
   { id: "fal-ai/nano-banana",         label: "Nano Banana", input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
   { id: "openai/gpt-image-2",         label: "GPT Image 2", input: (p, ar) => ({ prompt: p, image_size: gptSize(ar), quality: "high", num_images: 1 }) },
+  { id: "fal-ai/imagen4/preview",     label: "Imagen 4",    input: (p, ar) => ({ prompt: p, aspect_ratio: ar, num_images: 1 }) },
 ];
 // "Put the actor in this scene" uses image-editing models.
 const EDIT_MODELS = [
@@ -247,17 +248,17 @@ function setupSeg(seg, createPane, selectPane, onSelect) {
 function slot(kind) {
   return kind === "character"
     ? { get: () => charImgSrc, set: (v) => (charImgSrc = v), prompt: els.charPrompt, btn: els.charBtn, thumb: els.charThumb, status: els.charStatus, file: els.charFile,
-        grid: els.castGrid, cand: els.charCandidates, lib: cast, libKey: LS_CAST, label: "actor", makeN: "🧑‍🎨 Create 3 Actor options" }
+        grid: els.castGrid, cand: els.charCandidates, lib: cast, libKey: LS_CAST, label: "actor", makeN: "🧑‍🎨 Create Actor options" }
     : { get: () => setImgSrc, set: (v) => (setImgSrc = v), prompt: els.setPrompt, btn: els.setBtn, thumb: els.setThumb, status: els.setStatus, file: els.setFile,
-        grid: els.setGrid, cand: els.setCandidates, lib: setLocations, libKey: LS_SETLOC, label: "setting", makeN: "🏞️ Create 3 Setting options" };
+        grid: els.setGrid, cand: els.setCandidates, lib: setLocations, libKey: LS_SETLOC, label: "setting", makeN: "🏞️ Create Setting options" };
 }
 
 function refreshImgBtns() {
   const bad = generating || /api\.decart\.ai/i.test(apiBase());
   els.charBtn.disabled = bad || els.charPrompt.value.trim().length === 0;
   els.setBtn.disabled = bad || els.setPrompt.value.trim().length === 0;
-  els.charBtn.textContent = generating ? "…" : "🧑‍🎨 Create 3 Actor options";
-  els.setBtn.textContent = generating ? "…" : "🏞️ Create 3 Setting options";
+  els.charBtn.textContent = generating ? "…" : "🧑‍🎨 Create Actor options";
+  els.setBtn.textContent = generating ? "…" : "🏞️ Create Setting options";
 }
 
 // Add an uploaded photo to a library and select it.
