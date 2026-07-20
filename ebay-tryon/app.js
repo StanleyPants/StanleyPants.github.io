@@ -439,13 +439,11 @@ function setStage(mode, msg) {
   show(els.compositeImg, hasImg);
   if (hasImg && compositeUrl) els.compositeImg.src = compositeUrl;
   show(els.stageOverlay, mode === "generating");
-  if (mode === "empty") {
-    els.stageHint.textContent = "Cast an actor (and optionally choose a set) above — your shot will be staged here.";
-    show(els.stageHint, true);
-  } else if (mode === "error") {
+  if (mode === "error") {
     els.stageHint.textContent = "⚠️ " + (msg || "Couldn't stage the shot.");
     show(els.stageHint, true);
   } else {
+    els.stageHint.textContent = "";
     show(els.stageHint, false);
   }
 }
