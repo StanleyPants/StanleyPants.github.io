@@ -294,12 +294,12 @@ async function createImage(kind) {
   refreshImgBtns(); refreshGenBtn();
   setStatusEl(s.status, `<div class="spinner"></div><p>Generating ${models.length} options…</p>`, "");
 
-  // Render a loading cell per model, then fill each as it completes.
+  // Render a loading cell per option, then fill each as it completes.
   s.cand.innerHTML = "";
-  const cells = models.map((m) => {
+  const cells = models.map(() => {
     const cell = document.createElement("div");
     cell.className = "cand-item";
-    cell.innerHTML = `<div class="spinner"></div><div class="lbl">${escapeHtml(m.label)}</div>`;
+    cell.innerHTML = `<div class="spinner"></div>`;
     s.cand.appendChild(cell);
     return cell;
   });
@@ -309,17 +309,17 @@ async function createImage(kind) {
       const result = await falRun(m.id, m.input, null);
       const url = result.images && result.images[0] && result.images[0].url;
       if (!url) throw new Error("no image");
-      cells[i].innerHTML = `<img src="${url}" alt="${escapeHtml(m.label)}"><div class="lbl">${escapeHtml(m.label)}</div>`;
+      cells[i].innerHTML = `<img src="${url}" alt="option ${i + 1}">`;
       cells[i].addEventListener("click", () => {
         cells.forEach((c) => c.classList.remove("selected"));
         cells[i].classList.add("selected");
         saveToLib(kind, url, prompt.slice(0, 60));
         if (kind === "setting") settingHasChar = composite;
         chooseFromLibrary(kind, url);
-        setStatusEl(s.status, `✅ Chose the ${m.label} ${s.label} — saved to your ${kind === "character" ? "cast" : "set locations"}.`, "ok");
+        setStatusEl(s.status, `✅ Saved to your ${kind === "character" ? "cast" : "set locations"}.`, "ok");
       });
     } catch (err) {
-      cells[i].innerHTML = `<div class="err">${escapeHtml(m.label)}: ${escapeHtml(err.message || "failed")}</div>`;
+      cells[i].innerHTML = `<div class="err">${escapeHtml(err.message || "failed")}</div>`;
     }
   })()));
 
@@ -431,7 +431,7 @@ async function generateSource() {
 
   generating = true;
   refreshGenBtn(); refreshImgBtns();
-  setGenStatus(`<div class="spinner"></div><p>Submitting to Seedance 2.0…</p>`, "");
+  setGenStatus(`<div class="spinner"></div><p>Submitting…</p>`, "");
 
   const fast = els.genFast.checked;
   // If the setting already composites the character, animate just that one image.
