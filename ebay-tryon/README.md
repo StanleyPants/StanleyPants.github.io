@@ -12,11 +12,13 @@ You can start from **text only**:
 
 Step 1 shows the **Actor** and **Setting** side by side, each with a **Create New** / **Select** toggle:
 
-- **1a Your Video's Actor** — *Create New Actor* generates **candidates from several models** at 9:16 —
-  pick your favorite. You only describe the person's appearance and wardrobe; the framing is **fixed** to
-  a full-body studio audition photo on a plain white background. Or *Select From Your Cast* (a saved
-  gallery of actors you've made/uploaded). Chosen images are saved to your **cast**.
-- **1b Your Video's Setting** — same **candidate** chooser at 16:9, or *Select From Your Set Locations*.
+- **1a Your Video's Actor** — *Create New Actor* generates **4 candidates** (all Nano Banana, each nudged
+  by a different pose/angle so they vary) at 9:16 — pick your favorite. You only describe the person's
+  appearance and wardrobe; the framing is **fixed** to a full-body studio audition photo on a plain white
+  background. Or *Select From Your Cast* (a saved gallery of actors you've made/uploaded). Chosen images
+  are saved to your **cast**.
+- **1b Your Video's Setting** — same **4-candidate** chooser (varied lighting/angle) at 16:9, or
+  *Select From Your Set Locations*.
   The actor + setting are combined by Seedance reference-to-video.
 
 Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
