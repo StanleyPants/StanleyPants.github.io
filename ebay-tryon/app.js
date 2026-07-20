@@ -629,8 +629,9 @@ async function generateSource() {
       image_url: compositeUrl,
       duration: els.genDur.value, // "5" or "10"
       cfg_scale: 0.5,
+      generate_audio: wantSound, // Kling 2.6 Pro native audio
     };
-    const result = await falRun("fal-ai/kling-video/v2.5-turbo/pro/image-to-video", input, (status, secs) =>
+    const result = await falRun("fal-ai/kling-video/v2.6/pro/image-to-video", input, (status, secs) =>
       setGenStatus(`<div class="spinner"></div><p>${status === "IN_PROGRESS" ? "Rendering video" : "In queue"}… (${secs}s)</p>`, ""));
     const videoUrl = extractVideoUrl(result);
     if (!videoUrl) {

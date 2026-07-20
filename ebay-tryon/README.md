@@ -25,7 +25,8 @@ Cast and set-location libraries persist in `localStorage` (quota-safe: oldest en
 - **1c Motion Magic** — instead of typing a prompt, pick a **Template**, a **Director**, and a **Vibe**,
   and choose **Include Sound** (Yes/No). Templates live in [`templates.js`](templates.js), directors in
   [`directors.js`](directors.js), and vibes in [`vibes.js`](vibes.js) (see below). The baseline video is
-  made with **Kling 2.5 Turbo Pro** image-to-video (it permits human subjects, unlike Seedance). Kling
+  made with **Kling 2.6 Pro** image-to-video (it permits human subjects, unlike Seedance, and adds native
+  audio when Include Sound is Yes). Kling
   animates a **single** image: if you chose a Setting, the app first composites the actor into that scene
   with **Nano Banana** (image edit), then animates the composite; with only an actor, it animates the
   actor image directly.
@@ -62,10 +63,10 @@ Each image can also be **uploaded** instead of generated. Uses the same `FAL_KEY
 passthrough as the video step — no extra setup. (OpenArt has no public API, so fal is used for image
 generation.)
 
-## Optional step 0: generate the baseline video from an image (fal.ai Kling 2.5)
+## Optional step 0: generate the baseline video from an image (fal.ai Kling 2.6)
 
 Instead of uploading a video, you can build an actor (+ optional setting) and generate the baseline video
-with **Kling 2.5 Turbo Pro image-to-video** (via [fal.ai](https://fal.ai)) — it permits human subjects,
+with **Kling 2.6 Pro image-to-video** (via [fal.ai](https://fal.ai)) — it permits human subjects,
 which Seedance does not. The generated video is downloaded and used as the baseline video for the try-on
 step. To enable it:
 
