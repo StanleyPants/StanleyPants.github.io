@@ -6,7 +6,7 @@
   <title>eBay Motion Studio</title>
   <meta name="description" content="Turn one video + eBay listings into up to 5 AI try-on videos with Decart.ai." />
   <link rel="icon" href="reel.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <div class="app">
@@ -108,12 +108,12 @@
           </div>
         </div>
 
-        <p class="hint center or-sep">— combine into a baseline video —</p>
-
         <!-- 1c. Animate/combine via Seedance 2.0 -->
-        <label class="field-label">1c · Baseline video</label>
+        <label class="field-label">1c · Motion Magic</label>
         <textarea id="genPrompt" rows="2" spellcheck="false"
           placeholder="How it moves — refer to your Actor and Setting by name. e.g. “Actor walks slowly through Setting, camera tracks alongside, soft daylight.”"></textarea>
+        <p class="hint" style="margin-top:8px;">✨ Tap a starter prompt to add it (combine as many as you like):</p>
+        <div class="starter-prompts" id="starterPrompts"></div>
         <details class="advanced">
           <summary>Video options</summary>
           <div class="opt-grid">
@@ -220,6 +220,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=20"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
