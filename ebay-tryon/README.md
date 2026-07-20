@@ -74,9 +74,10 @@ step. To enable it:
 3. Redeploy the proxy. The proxy forwards to `queue.fal.run` with the key injected (never exposed to
    the browser); the image is sent as a data URI, so no separate upload step.
 
-The selected **template** describes the motion (and its sound). Options: duration (5 or 10 sec),
-aspect ratio (portrait/landscape/square — applied when compositing the actor into a setting), and
-Include Sound (Yes/No).
+The selected **template** describes the motion (and its sound). Options: duration (5 or 10 sec) and
+Include Sound (Yes/No). The source image and video are always **16:9** — with a setting the actor is
+composited into the scene at 16:9; without one the actor's portrait is reframed onto a 16:9 studio
+backdrop, so Kling (which inherits the image's aspect) always outputs 16:9.
 
 ## How it works
 

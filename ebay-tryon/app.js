@@ -101,7 +101,6 @@ const els = {
   genTemplateDesc: $("genTemplateDesc"),
   genSound: $("genSound"),
   genDur: $("genDur"),
-  genAsp: $("genAsp"),
   genBtn: $("genBtn"),
   genStatus: $("genStatus"),
 
@@ -531,29 +530,43 @@ async function generateSource() {
   // director + vibe, add the audio cue if wanted, and phrase it in natural terms
   // (no @Image tokens — those were only for Seedance's two-image referencing).
   const wantSound = els.genSound.value === "yes";
-  const aspect = els.genAsp.value;
   let prompt = composedPrompt();
   if (wantSound && tpl.sound) prompt += ` Audio: ${tpl.sound}.`;
   prompt = prompt.replace(/\bactor\b/gi, "the subject").replace(/\bsetting\b/gi, "the scene");
 
   try {
-    // 1) If a Setting is chosen, composite the actor into it (Nano Banana edit),
-    //    producing one image at the chosen aspect ratio. Otherwise animate the
-    //    actor image directly (native 9:16).
-    let sourceImage = charImgSrc;
+    // 1) Produce a single 16:9 source image with Nano Banana. With a Setting,
+    //    composite the actor into the scene; without one, reframe the actor's
+    //    portrait onto a 16:9 studio backdrop. Kling inherits the image's aspect,
+    //    so this makes both the composite image and the video 16:9.
+    let sourceImage;
     if (setImgSrc) {
-      setGenStatus(`<div class="spinner"></div><p>Placing the actor into the scene…</p>`, "");
+      setGenStatus(`<div class="spinner"></div><p>Placing the actor into the scene (16:9)…</p>`, "");
       const comp = await falRun("fal-ai/nano-banana/edit", {
         prompt:
           "Composite the person from the first image into the scene from the second image as a " +
-          "single photorealistic image: the full-body person standing naturally in the environment, " +
-          "matching the scene's lighting, perspective, and scale.",
+          "single photorealistic 16:9 landscape image: the full-body person standing naturally in the " +
+          "environment, matching the scene's lighting, perspective, and scale.",
         image_urls: [charImgSrc, setImgSrc],
-        aspect_ratio: aspect,
+        aspect_ratio: "16:9",
         num_images: 1,
       }, null);
       const compUrl = comp.images && comp.images[0] && comp.images[0].url;
       if (!compUrl) throw new Error("Couldn't composite the actor into the scene.");
+      sourceImage = compUrl;
+    } else {
+      setGenStatus(`<div class="spinner"></div><p>Framing the actor in 16:9…</p>`, "");
+      const comp = await falRun("fal-ai/nano-banana/edit", {
+        prompt:
+          "Reframe this full-body studio audition photo as a 16:9 landscape image: keep the same " +
+          "person, entire body from head to toe fully in frame, standing centered against a plain " +
+          "seamless white studio background with even, professional lighting.",
+        image_urls: [charImgSrc],
+        aspect_ratio: "16:9",
+        num_images: 1,
+      }, null);
+      const compUrl = comp.images && comp.images[0] && comp.images[0].url;
+      if (!compUrl) throw new Error("Couldn't reframe the actor to 16:9.");
       sourceImage = compUrl;
     }
 
