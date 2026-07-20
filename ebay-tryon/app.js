@@ -37,6 +37,21 @@ const EDIT_MODELS = [
   { id: "fal-ai/nano-banana/edit", label: "Nano Banana",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], num_images: 1 }) },
   { id: "openai/gpt-image-2/edit", label: "GPT Image 2",  input: (p, ar, img) => ({ prompt: p, image_urls: [img], image_size: gptSize(ar), quality: "high", num_images: 1 }) },
 ];
+// Clickable starter prompts for the Motion Magic field — refer to Actor/Setting
+// by name (encoded to @Image1/@Image2 on submit). Users can chain several.
+const STARTER_PROMPTS = [
+  "Actor walks slowly toward the camera, full-body, soft daylight.",
+  "Actor turns to face the camera and smiles.",
+  "Camera slowly orbits around Actor.",
+  "Actor strolls through Setting, camera tracking alongside.",
+  "A gentle breeze moves Actor's hair and clothing.",
+  "Slow-motion as Actor spins to show off the outfit.",
+  "Actor poses confidently with a subtle head tilt.",
+  "Camera pushes in from a wide shot to a medium shot of Actor.",
+  "Actor walks past Setting at golden hour, warm backlight.",
+  "Handheld follow shot behind Actor moving forward.",
+];
+
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_SELECT = 5;
@@ -80,6 +95,7 @@ const els = {
   setStatus: $("setStatus"),
 
   genPrompt: $("genPrompt"),
+  starterPrompts: $("starterPrompts"),
   genDur: $("genDur"),
   genAsp: $("genAsp"),
   genAudio: $("genAudio"),
@@ -217,6 +233,7 @@ function setupSourceImages() {
   // Video
   els.genPrompt.addEventListener("input", refreshGenBtn);
   els.genBtn.addEventListener("click", generateSource);
+  renderStarterPrompts();
 
   renderLibrary("character");
   renderLibrary("setting");
@@ -401,6 +418,28 @@ function refreshGenBtn() {
                 els.genPrompt.value.trim().length > 0 && !/api\.decart\.ai/i.test(apiBase());
   els.genBtn.disabled = !ready;
   els.genBtn.textContent = generating ? "🎬 Generating…" : "🎬 Generate baseline video";
+}
+
+// Render the clickable starter-prompt chips under the Motion Magic field.
+function renderStarterPrompts() {
+  if (!els.starterPrompts) return;
+  els.starterPrompts.innerHTML = "";
+  STARTER_PROMPTS.forEach((text) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chip";
+    btn.textContent = text;
+    btn.addEventListener("click", () => appendStarterPrompt(text));
+    els.starterPrompts.appendChild(btn);
+  });
+}
+
+// Append a starter prompt to whatever's already in the field (space-separated).
+function appendStarterPrompt(text) {
+  const cur = els.genPrompt.value.trim();
+  els.genPrompt.value = cur ? `${cur} ${text}` : text;
+  refreshGenBtn();
+  els.genPrompt.focus();
 }
 
 async function generateSource() {

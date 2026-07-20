@@ -56,6 +56,9 @@ a { color: var(--accent-2); }
 #extractBtn { margin-top: 10px; }
 #pasteBox, #genPrompt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 #genPrompt { margin-top: 10px; }
+.starter-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+.starter-prompts .chip { border: 1px solid var(--border); background: #0f131d; color: var(--muted); border-radius: 999px; padding: 5px 11px; font-size: 11.5px; line-height: 1.2; cursor: pointer; text-align: left; transition: color .12s, border-color .12s, background .12s; }
+.starter-prompts .chip:hover { color: var(--text); border-color: var(--accent); background: rgba(124,92,255,0.12); }
 
 /* Seedance image generation */
 .dropzone.small { min-height: 96px; }
