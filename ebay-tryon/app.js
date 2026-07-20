@@ -544,9 +544,14 @@ async function generateSource() {
       setGenStatus(`<div class="spinner"></div><p>Placing the actor into the scene (16:9)…</p>`, "");
       const comp = await falRun("fal-ai/nano-banana/edit", {
         prompt:
-          "Composite the person from the first image into the scene from the second image as a " +
-          "single photorealistic 16:9 landscape image: the full-body person standing naturally in the " +
-          "environment, matching the scene's lighting, perspective, and scale.",
+          "Blend the person from the first image naturally into the scene from the second image as a " +
+          "single photorealistic 16:9 landscape photograph. Set the person back within the environment " +
+          "at a natural full-body distance from the camera, standing on the actual ground in the " +
+          "mid-ground of the scene — not close-up in the foreground. Ground them with realistic contact " +
+          "shadows and any reflections, match the scene's light direction, color temperature, perspective, " +
+          "scale, depth of field, and grain, and let environmental elements sit both in front of and " +
+          "behind them so they are truly embedded in the space. The result must look like a real photo " +
+          "taken in that location, with natural depth — never like a cut-out pasted on a flat backdrop.",
         image_urls: [charImgSrc, setImgSrc],
         aspect_ratio: "16:9",
         num_images: 1,
