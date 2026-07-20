@@ -20,12 +20,12 @@ Step 1 shows the **Actor** and **Setting** side by side, each with a **Create Ne
 
 Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
 - **1b Setting** (optional) — describe a scene/background → another generated image.
-- **1c Motion Magic** — instead of typing a prompt, pick a **Template** and a **Director**, and choose
-  **Include Sound** (Yes/No). Templates live in [`templates.js`](templates.js) and directors in
-  [`directors.js`](directors.js) (see below). Seedance combines the images: with both it uses
-  **reference-to-video**, with only a character it uses **image-to-video**. Each template refers to
-  **Actor** / **Setting**, which the app encodes to Seedance's `@Image1` / `@Image2` reference tokens
-  (actor first, then setting) before submitting.
+- **1c Motion Magic** — instead of typing a prompt, pick a **Template**, a **Director**, and a **Vibe**,
+  and choose **Include Sound** (Yes/No). Templates live in [`templates.js`](templates.js), directors in
+  [`directors.js`](directors.js), and vibes in [`vibes.js`](vibes.js) (see below). Seedance combines the
+  images: with both it uses **reference-to-video**, with only a character it uses **image-to-video**.
+  Each template refers to **Actor** / **Setting**, which the app encodes to Seedance's `@Image1` /
+  `@Image2` reference tokens (actor first, then setting) before submitting.
 
 ### Motion Magic templates (`templates.js`)
 
@@ -43,6 +43,13 @@ live in `directors.js` — each has an `id`, a dropdown `label` (the director na
 text, before the audio cue), so it shapes the overall look without changing the template's motion. Five
 archetypal directors ship by default (Epic Visionary, Intimate Realist, Neon Stylist, Vintage Romantic,
 Kinetic Energizer).
+
+### Vibes (`vibes.js`)
+
+A **Vibe** is a one-sentence mood modifier layered on the template alongside the Director. Vibes live in
+`vibes.js` — each has an `id`, a dropdown `label`, and a one-sentence `modifier`. The app appends the
+chosen vibe's `modifier` after the director's modifier (before the audio cue). Six vibes ship by default
+(Playful, Luxurious, Mysterious, Dreamy, Bold & Edgy, Serene).
 
 So the full chain is:
 
@@ -135,5 +142,6 @@ each listing's reference image onto the person in the baseline video.
 - `index.html` · `styles.css` · `app.js` — the app
 - `templates.js` — Motion Magic template definitions (edit to change the motion presets)
 - `directors.js` — Director definitions (one-sentence style modifiers layered on a template)
+- `vibes.js` — Vibe definitions (one-sentence mood modifiers layered on a template)
 - `reel.svg` — app icon
 - Shared proxy: `../video-editor/proxy/decart-proxy.deno.js`
