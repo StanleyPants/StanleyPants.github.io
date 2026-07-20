@@ -12,13 +12,14 @@ You can start from **text only**:
 
 Step 1 shows the **Actor** and **Setting** side by side, each with a **Create New** / **Select** toggle:
 
-- **1a Your Video's Actor** — *Create New Actor* (text prompt → fal image) or *Select From Your Cast*
-  (a saved gallery of actors you've made/uploaded, kept in this browser). Every created/uploaded actor is
-  saved to your **cast**.
-- **1b Your Video's Setting** — *Create New Setting* or *Select From Your Set Locations* (saved gallery).
-  Optionally check **"Put the actor in this scene"** to composite the chosen actor into the setting via
-  **FLUX Kontext**. When used, the source video animates that single composite; otherwise actor + setting
-  are combined by Seedance reference-to-video.
+- **1a Your Video's Actor** — *Create New Actor* generates **3 candidates from 3 models** (FLUX ultra /
+  Nano Banana / GPT Image 2) at 9:16 — pick your favorite. Or *Select From Your Cast* (a saved gallery of
+  actors you've made/uploaded). Chosen images are saved to your **cast**.
+- **1b Your Video's Setting** — same **3-candidate** chooser at 16:9, or *Select From Your Set Locations*.
+  Optionally check **"Put the actor in this scene"** to composite the chosen actor into the setting — this
+  generates 3 candidates from image-editing models (FLUX Kontext / Nano Banana / GPT Image 2). When used,
+  the source video animates that single composite; otherwise actor + setting are combined by Seedance
+  reference-to-video.
 
 Cast and set-location libraries persist in `localStorage` (quota-safe: oldest entries drop if full).
 - **1b Setting** (optional) — describe a scene/background → another generated image.

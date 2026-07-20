@@ -96,6 +96,15 @@ a { color: var(--accent-2); }
 .picker-item.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px rgba(34,211,238,0.35); }
 .picker-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .picker-item .rm { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; border: none; background: rgba(0,0,0,0.65); color: #fff; font-size: 11px; line-height: 1; cursor: pointer; }
+
+/* Candidate chooser (3 options per Create) */
+.cand-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.cand-grid:empty { display: none; }
+.cand-item { position: relative; border: 2px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; background: #11151f; aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center; }
+.cand-item.selected { border-color: var(--accent-2); box-shadow: 0 0 0 2px rgba(34,211,238,0.35); }
+.cand-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cand-item .lbl { position: absolute; bottom: 0; left: 0; right: 0; font-size: 9px; background: rgba(0,0,0,0.62); color: #fff; padding: 2px 3px; text-align: center; }
+.cand-item .err { font-size: 9.5px; color: #ffc9c9; padding: 6px; text-align: center; }
 .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
 .hint.center { text-align: center; }
 
