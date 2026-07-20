@@ -47,7 +47,6 @@ const els = {
   settingsPanel: $("settingsPanel"),
   apiKey: $("apiKey"),
   toggleKey: $("toggleKey"),
-  model: $("model"),
   apiBase: $("apiBase"),
 
   dropzone: $("dropzone"),
@@ -106,7 +105,6 @@ const els = {
 // Shared with the other editor on this site (same origin).
 const LS_KEY = "decart_api_key";
 const LS_BASE = "decart_api_base";
-const LS_MODEL = "decart_tryon_model"; // separate: this app defaults to a try-on model
 
 let videoFile = null;
 let charImgSrc = null;         // chosen actor image (data URI or fal URL)
@@ -127,15 +125,12 @@ let running = false;
   if (savedKey) els.apiKey.value = savedKey;
   const savedBase = localStorage.getItem(LS_BASE);
   if (savedBase) els.apiBase.value = savedBase;
-  const savedModel = localStorage.getItem(LS_MODEL);
-  if (savedModel) els.model.value = savedModel;
 
   els.apiKey.addEventListener("input", () => {
     localStorage.setItem(LS_KEY, els.apiKey.value.trim());
     refreshGenerate();
   });
   els.apiBase.addEventListener("input", () => localStorage.setItem(LS_BASE, els.apiBase.value.trim()));
-  els.model.addEventListener("input", () => localStorage.setItem(LS_MODEL, els.model.value.trim()));
 
   els.settingsToggle.addEventListener("click", () => {
     const open = els.settingsPanel.classList.toggle("hidden") === false;
@@ -674,7 +669,7 @@ function refreshGenerate() {
 async function generate() {
   clearError();
   const apiKey = els.apiKey.value.trim();
-  const model = els.model.value.trim() || "lucy-vton-2";
+  const model = "lucy-latest";
   const prompt = els.prompt.value.trim();
   if (!apiKey) return showError("Add your Decart API key in ⚙️ API Settings.");
   if (!videoFile) return showError("Choose a baseline video first.");
