@@ -58,6 +58,25 @@ a { color: var(--accent-2); }
 #genTemplateDesc { margin-top: 10px; line-height: 1.55; }
 #genTemplateDesc:not(:empty) { padding: 10px 12px; border-left: 2px solid var(--accent); background: rgba(124,92,255,0.06); border-radius: 6px; }
 
+/* Stage: the composited shot + film-reel processing overlay */
+.stage { position: relative; margin: 10px 0; max-width: 640px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #0b0e16; }
+.stage-img { display: block; width: 100%; height: auto; }
+.stage-spinner { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 16 / 9; color: var(--muted); font-size: 13px; }
+.stage-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(8,10,16,0.42); overflow: hidden; }
+.stage-caption { position: relative; z-index: 3; font-weight: 800; font-size: clamp(15px, 3.2vw, 26px); letter-spacing: 0.01em; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,0.7); text-align: center; padding: 0 12px; }
+/* sweeping band of eBay's four colors */
+.reel-sweep { position: absolute; inset: -40% -20%; z-index: 1; background: linear-gradient(115deg, transparent 34%, rgba(229,50,56,0.55) 44%, rgba(245,175,2,0.55) 52%, rgba(134,184,23,0.55) 60%, rgba(0,100,210,0.55) 68%, transparent 78%); background-size: 260% 100%; filter: blur(8px); animation: reel-slide 1.8s linear infinite; }
+@keyframes reel-slide { from { background-position: 210% 0; } to { background-position: -60% 0; } }
+/* scrolling film-strip perforations top & bottom */
+.reel-perf { position: absolute; left: 0; right: 0; height: 12px; z-index: 2; background: repeating-linear-gradient(90deg, transparent 0 9px, rgba(255,255,255,0.85) 9px 17px); background-size: 26px 100%; opacity: 0.28; animation: perf-scroll 0.6s linear infinite; }
+.reel-perf.top { top: 7px; } .reel-perf.bottom { bottom: 7px; }
+@keyframes perf-scroll { to { background-position: 26px 0; } }
+@media (prefers-reduced-motion: reduce) { .reel-sweep, .reel-perf { animation: none; } }
+
+/* Generated baseline video — constrained so it doesn't fill the screen */
+.video-wrap { margin-top: 12px; max-width: 640px; }
+.baseline-video { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border); background: #000; }
+
 /* Seedance image generation */
 .dropzone.small { min-height: 96px; }
 .dropzone.small .dz-empty { padding: 14px; }
