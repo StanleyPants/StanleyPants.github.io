@@ -39,6 +39,8 @@ const EDIT_MODELS = [
 ];
 // Motion Magic templates are defined in templates.js (window.VIDEO_TEMPLATES).
 const TEMPLATES = Array.isArray(window.VIDEO_TEMPLATES) ? window.VIDEO_TEMPLATES : [];
+// Directors (one-sentence style modifiers) are defined in directors.js.
+const DIRECTORS = Array.isArray(window.DIRECTOR_DEFINITIONS) ? window.DIRECTOR_DEFINITIONS : [];
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
@@ -83,6 +85,7 @@ const els = {
   setStatus: $("setStatus"),
 
   genTemplate: $("genTemplate"),
+  genDirector: $("genDirector"),
   genTemplateDesc: $("genTemplateDesc"),
   genSound: $("genSound"),
   genDur: $("genDur"),
@@ -221,7 +224,9 @@ function setupSourceImages() {
   // Video
   els.genBtn.addEventListener("click", generateSource);
   els.genTemplate.addEventListener("change", updateTemplateDesc);
+  els.genDirector.addEventListener("change", updateTemplateDesc);
   renderTemplates();
+  renderDirectors();
 
   renderLibrary("character");
   renderLibrary("setting");
@@ -425,15 +430,40 @@ function renderTemplates() {
   updateTemplateDesc();
 }
 
+// Populate the Director dropdown from directors.js.
+function renderDirectors() {
+  if (!els.genDirector) return;
+  els.genDirector.innerHTML = "";
+  DIRECTORS.forEach((d) => {
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = d.label;
+    els.genDirector.appendChild(opt);
+  });
+  updateTemplateDesc();
+}
+
 // Return the currently selected template object (falls back to the first).
 function selectedTemplate() {
   return TEMPLATES.find((t) => t.id === els.genTemplate.value) || TEMPLATES[0] || null;
 }
 
-// Show a short description of the selected template beneath the dropdown.
-function updateTemplateDesc() {
+// Return the currently selected director object (falls back to the first, if any).
+function selectedDirector() {
+  return DIRECTORS.find((d) => d.id === els.genDirector.value) || DIRECTORS[0] || null;
+}
+
+// Compose the prompt from the selected template + the director's style modifier.
+function composedPrompt() {
   const t = selectedTemplate();
-  els.genTemplateDesc.textContent = t ? t.prompt : "";
+  if (!t) return "";
+  const d = selectedDirector();
+  return d ? `${t.prompt} ${d.modifier}` : t.prompt;
+}
+
+// Show the composed template + director description beneath the dropdowns.
+function updateTemplateDesc() {
+  els.genTemplateDesc.textContent = composedPrompt();
 }
 
 async function generateSource() {
@@ -453,13 +483,13 @@ async function generateSource() {
   // Two images -> reference-to-video; one -> image-to-video.
   const useImages = images;
   const combine = useImages.length >= 2;
-  // Build the prompt from the selected template. Templates refer to the actor as
-  // "Actor" and the scene as "Setting"; Seedance's reference-to-video addresses
-  // images as @Image1/@Image2 in image_urls order (actor first, then setting),
-  // so encode those names to the reference tokens. The template's sound is added
-  // as an audio cue only when "Include Sound" is Yes.
+  // Build the prompt from the selected template + the director's style modifier.
+  // Templates refer to the actor as "Actor" and the scene as "Setting"; Seedance's
+  // reference-to-video addresses images as @Image1/@Image2 in image_urls order
+  // (actor first, then setting), so encode those names to the reference tokens.
+  // The template's sound is added as an audio cue only when "Include Sound" is Yes.
   const wantSound = els.genSound.value === "yes";
-  let prompt = tpl.prompt;
+  let prompt = composedPrompt();
   if (wantSound && tpl.sound) prompt += ` Audio: ${tpl.sound}.`;
   if (combine) {
     prompt = prompt
