@@ -1,57 +1,53 @@
 /* Motion Magic — Template Definitions.
  *
  * Each template defines the baseline-video motion. The app reads these to
- * populate the Template dropdown in section 1c and builds the Seedance prompt
- * from the selected entry — the user never types a prompt.
+ * populate the Template dropdown in section 1c and builds the video prompt from
+ * the selected entry — the user never types a prompt.
  *
  * Fields (public shape consumed by app.js):
  *   id     — stable unique key (used as the <option> value).
  *   label  — shown in the dropdown.
  *   prompt — the full motion description (a detailed paragraph). Refer to the
- *            actor as "Actor" and the scene as "Setting"; the app encodes those
- *            to Seedance's @Image1 / @Image2 reference tokens (actor first, then
- *            setting) at submit time. This paragraph is also shown to the user as
- *            the auto-generated description beneath the dropdown.
+ *            actor as "Actor" and the scene as "Setting"; the app rewrites those
+ *            to natural terms ("the subject" / "the scene") before submitting.
+ *            This paragraph is also shown to the user as the auto-generated
+ *            description beneath the dropdown.
  *   sound  — description of the audio for this template. Used only when the
  *            "Include Sound" dropdown is set to Yes; appended to the prompt as
- *            an audio cue and turns on Seedance audio generation.
+ *            an audio cue and turns on audio generation.
  *
- * Consistency model:
- *   Each template pins a per-template technical camera anchor (a locked lens,
- *   move, and framing) inside its `motion`, and every template shares a single
- *   CONSISTENCY_PROFILE clause. Together these constrain camera path, framing,
- *   pacing, and grade to fixed tolerances so repeated generations from the same
- *   template stay visually predictable — the same composition, rhythm, and look
- *   every run, while only the subject and wardrobe change. Deliberately avoids
- *   the words "Actor"/"Setting" so the token-encoding pass never rewrites it.
+ * Motion model:
+ *   The video is a single-image animation (Kling). To keep results feeling
+ *   organic and cinematic — not stiff — each template drives deliberate,
+ *   continuous camera movement (dolly, push-in, orbit, crane, handheld) plus a
+ *   gentle zoom and natural parallax, alongside lifelike subject motion. A
+ *   shared MOTION_PROFILE reinforces that look across every template.
  *
  * To add or change templates, edit this file only — no app code changes needed.
  */
 
-// Shared, locked profile appended to every template. Written without the words
-// "Actor"/"Setting" so it survives the @Image1/@Image2 encoding untouched.
-const CONSISTENCY_PROFILE =
-  "Consistency profile — this template is locked to a fixed cinematographic recipe so results stay " +
-  "repeatable and predictable across runs: the camera path, framing, focal length, pacing, and " +
-  "lighting are held to tight tolerances, driven through 24 fps motion at a 180-degree shutter with " +
-  "temporal-coherence stabilization and deterministic keyframing to minimize run-to-run drift. A " +
-  "calibrated three-point lighting rig and a color-managed neutral grade fix the exposure and tone, " +
-  "so the composition, rhythm, and overall look are reproduced identically every time and only the " +
-  "subject and their wardrobe vary.";
+// Shared clause appended to every template. Keeps the consistent, tuned look
+// while explicitly pushing continuous, motivated camera movement so the videos
+// feel organic rather than static. Avoids the words "Actor"/"Setting".
+const MOTION_PROFILE =
+  "Optimized for a consistent, cinematic look: the framing, focal length, pacing, color grade, and " +
+  "lighting recipe are tuned to fixed tolerances so results stay predictable across runs, while only " +
+  "the subject and wardrobe vary. Throughout the shot the camera stays in smooth, continuous, motivated " +
+  "motion with a gentle zoom, natural parallax between foreground and background, and subtle handheld " +
+  "life, and the subject moves with natural, lifelike physics — rendered at 24 fps with " +
+  "temporal-coherence stabilization for organic, filmic movement rather than a frozen, static frame.";
 
-// Per-template creative motion + a locked technical anchor. `prompt` below is
-// assembled as `${motion} ${CONSISTENCY_PROFILE}`.
+// Per-template creative motion. `prompt` below is `${motion} ${MOTION_PROFILE}`.
 const TEMPLATE_SOURCE = [
   {
     id: "runway-walk",
     label: "Runway walk",
     motion:
-      "Actor strides confidently toward the camera with the poise of a runway model, framed full-body " +
-      "from head to toe. The walk is smooth and deliberate — shoulders back, chin level, each step " +
-      "landing with purpose while the outfit moves and sways naturally with the body. The shot is locked " +
-      "to a static, slightly low camera angle on a 35mm-equivalent lens to keep a consistent full-length " +
-      "silhouette, lit with crisp, even studio light against a clean seamless backdrop. As Actor nears the " +
-      "lens they slow and settle into a final confident pose, held for the camera.",
+      "Actor walks confidently straight toward the camera with the poise of a runway model, full body in " +
+      "frame, while the camera glides backward on a smooth dolly and eases into a slow zoom to hold them " +
+      "as they approach. The walk is alive — shoulders swaying, hips moving, the outfit rippling with each " +
+      "step — and a subtle handheld drift lets the shot breathe. As Actor nears the lens, the camera " +
+      "settles and pushes in for a final confident beat.",
     sound:
       "an upbeat fashion-runway track with a punchy, driving beat and bright synth stabs, evoking the energy of a live catwalk show.",
   },
@@ -59,12 +55,10 @@ const TEMPLATE_SOURCE = [
     id: "turn-and-smile",
     label: "Turn & smile",
     motion:
-      "Actor begins with their side or back to the camera and turns gracefully to face the lens, breaking " +
-      "into a warm, genuine smile as their eyes meet the camera. The movement is relaxed and unhurried, " +
-      "with a subtle shift of weight, a small toss of the hair, and the outfit settling naturally as they " +
-      "come around. Framing holds a fixed, tripod-steady medium shot on a 50mm-equivalent lens with a " +
-      "soft, repeatable key-to-fill ratio that flatters the face and keeps every detail of the clothing " +
-      "clearly visible.",
+      "Actor starts with their side or back to the camera and turns gracefully to face the lens, breaking " +
+      "into a warm, natural smile, while the camera glides in on a slow dolly and gentle zoom to close the " +
+      "distance as they come around. Hair sways, weight shifts, and the outfit settles in motion. A soft " +
+      "handheld float keeps the frame feeling live and organic rather than static.",
     sound:
       "soft, cheerful acoustic background music with light percussion and a friendly, welcoming mood.",
   },
@@ -72,12 +66,10 @@ const TEMPLATE_SOURCE = [
     id: "360-showcase",
     label: "360° showcase",
     motion:
-      "The camera performs a slow, smooth 360-degree orbit around Actor, who stands tall and turns their " +
-      "head slightly to follow the lens, presenting the outfit from every angle. The orbit follows a " +
-      "fixed-radius circular track at a constant angular speed for an even, repeatable rotation that " +
-      "reveals the front, profile, and back of the garment in one continuous, unbroken move. Even, " +
-      "wraparound lighting eliminates harsh shadows so fabric texture, seams, and fit read clearly, all " +
-      "against a minimal Setting that stays quietly out of the way.",
+      "The camera sweeps in a smooth, continuous orbit around Actor while easing in with a slow zoom, " +
+      "revealing the outfit from every angle with momentum and depth as the background slides past in " +
+      "parallax. Actor turns their head and shifts their weight to stay engaged with the lens. The move " +
+      "never stops, giving an energetic, three-dimensional showcase of the whole look.",
     sound:
       "smooth ambient electronic music with a steady pulse and airy pads that build gently through the rotation.",
   },
@@ -85,12 +77,11 @@ const TEMPLATE_SOURCE = [
     id: "street-stroll",
     label: "Street stroll",
     motion:
-      "Actor strolls at an easy, relaxed pace through Setting while the camera tracks alongside on a " +
-      "constant-speed lateral dolly, holding a fixed subject-to-camera distance on a 35mm-equivalent lens " +
-      "so Actor stays centered and the same size in frame throughout. Their gait is casual and self-assured, " +
-      "arms swinging naturally and the outfit moving with each stride. Natural daylight and a shallow depth " +
-      "of field keep Actor crisp while Setting blurs softly behind them, and occasionally Actor glances " +
-      "toward the lens with an easy confidence.",
+      "Actor strolls at an easy pace through Setting while the camera tracks alongside and slightly ahead " +
+      "on a smooth dolly, with strong parallax as foreground and background elements slide past at " +
+      "different speeds. The camera drifts with subtle handheld life and eases into an occasional gentle " +
+      "push-in. Actor's stride is loose and natural, arms swinging, the outfit moving, and they glance " +
+      "toward the lens with easy confidence.",
     sound:
       "gentle city ambience — distant traffic, a soft breeze, and footsteps — layered under a laid-back lo-fi groove.",
   },
@@ -98,12 +89,10 @@ const TEMPLATE_SOURCE = [
     id: "golden-hour",
     label: "Golden hour",
     motion:
-      "Actor walks slowly through Setting during golden hour, backlit by a low, warm sun that rims their " +
-      "hair and shoulders with a glowing halo and casts long, soft shadows. Subtle lens flares drift across " +
-      "the frame as they move, and a faint haze catches the light for a dreamy, luminous atmosphere. The " +
-      "camera floats with Actor on a slow, fixed-rate drift, and the white balance is pinned to a warm " +
-      "~3200K key so the golden-hour palette — rich amber and honeyed tones — reproduces consistently from " +
-      "run to run.",
+      "Actor walks slowly through Setting during golden hour while the camera cranes and drifts with them " +
+      "and eases into a soft zoom, warm backlight rimming their hair and shoulders as lens flares drift " +
+      "across the frame. Long shadows stretch and shift with the movement, haze catches the light, and " +
+      "gentle parallax adds depth as the environment glides past, all in rich amber tones.",
     sound:
       "a warm, intimate acoustic-guitar melody with soft strings and a nostalgic, sunset mood.",
   },
@@ -111,12 +100,10 @@ const TEMPLATE_SOURCE = [
     id: "spin-reveal",
     label: "Spin reveal",
     motion:
-      "Actor spins on the spot in graceful slow motion, arms slightly extended, so the outfit flares " +
-      "outward and the fabric flows and ripples with the momentum. Every fold, pleat, and movement of the " +
-      "garment becomes exaggerated and beautiful at reduced speed, hair fanning out and catching the light " +
-      "at the peak of the turn. The camera holds a locked medium-wide frame with a fixed slow-motion time " +
-      "ramp so the reveal timing stays repeatable, lit with dramatic, directional light that sculpts the " +
-      "form against a clean, uncluttered Setting.",
+      "Actor spins in graceful slow motion so the outfit flares and the fabric flows, while the camera " +
+      "arcs around them and pushes in on the reveal, catching the movement from a dynamic angle. Hair " +
+      "fans out, the garment ripples, and the combined subject spin and camera arc create swirling, " +
+      "organic motion with real depth rather than a flat turn.",
     sound:
       "a dreamy slow-motion whoosh with shimmering chimes and a swelling, ethereal pad.",
   },
@@ -124,12 +111,10 @@ const TEMPLATE_SOURCE = [
     id: "confident-pose",
     label: "Confident pose",
     motion:
-      "Actor holds a strong, confident fashion pose with a subtle head tilt and a steady gaze into the " +
-      "lens, weight shifted onto one hip. The motion is minimal but alive — gentle breathing, a slow blink, " +
-      "a small adjustment of the stance — giving the shot the polished quality of a moving editorial " +
-      "portrait. The frame is a static, tripod-locked medium shot on an 85mm-equivalent lens with a " +
-      "calibrated soft key and defined, shaping shadows, set against a simple Setting that keeps the styling " +
-      "front and center.",
+      "Actor holds a confident pose with subtle, lifelike movement — gentle breathing, a slow blink, a " +
+      "small shift of weight and head — while the camera creeps in on a slow, continuous push and eases " +
+      "into a soft zoom, gradually tightening from a medium shot toward the face and outfit. A faint " +
+      "handheld drift and slight parallax keep the shot alive and cinematic rather than frozen.",
     sound:
       "a minimal ambient pad with a slow, understated beat and a cool, high-fashion mood.",
   },
@@ -137,12 +122,10 @@ const TEMPLATE_SOURCE = [
     id: "push-in",
     label: "Cinematic push-in",
     motion:
-      "The camera opens on a wide establishing shot of Actor within Setting and pushes in on a fixed axis " +
-      "at a constant rate to a flattering medium close-up, building intimacy and drawing focus to Actor's " +
-      "expression and the fine details of the outfit. Actor stays mostly still, offering only subtle " +
-      "movement — a slow turn of the head, a soft smile, a calm blink — as the frame tightens. The dolly-in " +
-      "distance and speed are fixed so the move lands identically every run, with cinematic gentle contrast " +
-      "and a shallow depth of field.",
+      "Starting wide on Actor within Setting, the camera performs a smooth, continuous push-in with an " +
+      "accompanying zoom, traveling from a full wide shot to a flattering medium close-up while building " +
+      "intimacy. Actor offers subtle, natural movement — a slow head turn, a soft smile — and gentle " +
+      "parallax between them and the background adds depth and life to the move.",
     sound:
       "a rising cinematic swell of strings and low brass that crescendos as the camera pushes in.",
   },
@@ -150,12 +133,10 @@ const TEMPLATE_SOURCE = [
     id: "follow-shot",
     label: "Follow shot",
     motion:
-      "The camera follows just behind and slightly to the side of Actor in a stabilized behind-the-shoulder " +
-      "move as they walk forward through Setting, holding a fixed trailing distance on a 35mm-equivalent " +
-      "lens for a consistent, immersive sense of momentum. Actor's stride is purposeful and steady, and now " +
-      "and then they glance back toward the lens. The environment streams past on either side with a " +
-      "controlled, gentle motion, and daylight shifts across Actor and the outfit as they advance deeper " +
-      "into Setting.",
+      "The camera follows just behind and beside Actor in a dynamic, stabilized handheld move as they walk " +
+      "forward through Setting, with a natural bob, shifting parallax, and occasional changes of pace that " +
+      "make it feel live and organic. Actor's stride is purposeful, they glance back toward the lens, and " +
+      "the camera eases into a gentle push-in as they move deeper into the environment.",
     sound:
       "energetic, rhythmic footsteps and lively ambient movement under an upbeat, driving instrumental.",
   },
@@ -163,22 +144,20 @@ const TEMPLATE_SOURCE = [
     id: "breeze",
     label: "Gentle breeze",
     motion:
-      "Actor stands mostly still and gazes off-camera with a calm, contemplative expression while a gentle " +
-      "breeze moves through the scene, lifting their hair and rippling the fabric of the outfit. The motion " +
-      "is soft and continuous, giving the shot a serene, editorial stillness with just enough movement to " +
-      "feel alive. The frame is near-static with a barely-perceptible fixed-rate drift and a constant, " +
-      "gentle wind simulation, lit with soft natural light against a quiet Setting for a tranquil, " +
-      "wind-kissed mood that stays consistent across takes.",
+      "Actor stands mostly still with a calm expression while a gentle breeze lifts their hair and ripples " +
+      "the outfit, and the camera slowly drifts and eases into a soft, continuous zoom, gradually revealing " +
+      "more of Setting with gentle parallax. The subtle wind, the drifting camera, and the slow zoom " +
+      "combine into a serene but living shot that never feels frozen.",
     sound:
       "soft wind ambience with distant, airy tones and a calm, meditative undercurrent.",
   },
 ];
 
-// Compose the public templates: creative motion + shared consistency profile.
+// Compose the public templates: creative motion + shared motion profile.
 const VIDEO_TEMPLATES = TEMPLATE_SOURCE.map((t) => ({
   id: t.id,
   label: t.label,
-  prompt: `${t.motion} ${CONSISTENCY_PROFILE}`,
+  prompt: `${t.motion} ${MOTION_PROFILE}`,
   sound: t.sound,
 }));
 
