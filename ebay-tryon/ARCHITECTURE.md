@@ -88,3 +88,15 @@ template.motion  +  MOTION_PROFILE  +  director.modifier  +  vibe.modifier  +  [
 ```
 
 Then `Actor` / `Setting` are rewritten to natural terms (`the subject` / `the scene`) before submission.
+
+## Rendered images (PNG)
+
+Static exports of the diagrams above, for slides/docs (the Mermaid blocks render inline on GitHub):
+
+**System & components**
+
+![System and components diagram](docs/architecture-components.png)
+
+**Data pipeline**
+
+![Data pipeline diagram](docs/architecture-pipeline.png)
