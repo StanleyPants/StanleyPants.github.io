@@ -151,5 +151,6 @@ each listing's reference image onto the person in the baseline video.
 - `templates.js` — Motion Magic template definitions (edit to change the motion presets)
 - `directors.js` — Director definitions (one-sentence style modifiers layered on a template)
 - `vibes.js` — Vibe definitions (one-sentence mood modifiers layered on a template)
+- `ARCHITECTURE.md` — system/component and data-pipeline diagrams (Mermaid)
 - `reel.svg` — app icon
 - Shared proxy: `../video-editor/proxy/decart-proxy.deno.js`
