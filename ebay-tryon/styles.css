@@ -91,6 +91,7 @@ a { color: var(--accent-2); }
 .opt-grid { display: flex; flex-wrap: wrap; gap: 12px 16px; margin-top: 12px; align-items: center; }
 .opt-grid label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; font-weight: 500; }
 .opt-grid select { background: #0f131d; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font-size: 12px; }
+.model-select { width: 100%; max-width: 440px; background: #0f131d; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; margin-bottom: 4px; }
 .opt-grid label.chk { gap: 5px; }
 #genBtn { margin-top: 12px; width: 100%; }
 .gen-status { margin-top: 12px; padding: 12px; border-radius: 10px; background: rgba(124,92,255,0.1); border: 1px solid rgba(124,92,255,0.3); font-size: 13px; text-align: center; }
