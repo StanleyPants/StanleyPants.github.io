@@ -1126,7 +1126,7 @@ async function runOne(item, card, { apiKey, model, prompt }) {
     showOutputVideo(card, blob, item);
   } catch (err) {
     console.error(err);
-    card.body.innerHTML = `<p class="status err">⚠️ ${escapeHtml(netHint(err.message))}</p>`;
+    card.body.innerHTML = `<p class="status err">⚠️ ${escapeHtml(netHint(err.message, model))}</p>`;
     card.actions.innerHTML = "";
   }
 }
@@ -1189,16 +1189,23 @@ async function describeHttpError(res, action) {
   return `Failed to ${action} (HTTP ${res.status}). ${detail}`.trim();
 }
 
-// Turn a raw network failure into an actionable hint. The Decart try-on step
-// uploads the whole baseline video through the proxy, so a large clip (e.g. a
-// 10s render) is a common cause of "Failed to fetch".
-function netHint(msg) {
-  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-    return "Couldn't reach the proxy for the Decart job. Common causes: the baseline video is too " +
-      "large to upload through the proxy (try a 5-second clip), or the proxy isn't deployed / the " +
-      "API base URL is wrong (check ⚙️ Settings and open the /__whoami URL). (" + msg + ")";
+// Turn a raw network failure into an actionable hint. The Decart engine uploads
+// the whole baseline video through the proxy (a big multipart body), which is a
+// common cause of "Failed to fetch"; the open fal models don't upload it.
+function netHint(msg, model) {
+  if (!/failed to fetch|networkerror|load failed/i.test(msg)) return msg;
+  if (model && model.engine === "decart") {
+    return "Couldn't upload the video to the proxy for the Decart job — the baseline video is likely " +
+      "too large to send through the proxy. Try Duration 5s, or switch the Video editing model to an " +
+      "open one (Lucy Edit / Wan): those edit the clip by URL and don't upload it. (Also confirm the " +
+      "proxy is deployed and the API base URL in ⚙️ Settings is right.) (" + msg + ")";
   }
-  return msg;
+  if (model && model.engine === "fal") {
+    return "Couldn't reach the proxy for the open-model edit. Check the API base URL in ⚙️ Settings and " +
+      "that the Deno proxy is deployed (open its /__whoami URL). (" + msg + ")";
+  }
+  return "Couldn't reach the proxy. Check the API base URL in ⚙️ Settings and that the Deno proxy is " +
+    "deployed (open its /__whoami URL). (" + msg + ")";
 }
 
 function showError(msg) {
