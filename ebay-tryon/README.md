@@ -136,11 +136,14 @@ A **Video editing model** dropdown in the Generate panel selects the try-on engi
   `lucy-restyle-2`. Runs through the `/v1` job API (multipart: baseline video + item image) and
   performs true **reference-guided / virtual try-on** — the eBay item is applied to the person. Needs
   your Decart API key.
-- **Open-weights (fal)** — **Wan 2.2 A14B** (`fal-ai/wan/v2.2-a14b/video-to-video`) and **LTX-2 19B**
-  (`fal-ai/ltx-2-19b/video-to-video`). Runs through `/fal` (JSON: `video_url` + `prompt`) and does a
-  prompt-driven **restyle** of the whole generated baseline video. These are general video-to-video
-  models, so they **do not apply the selected item image** — use the optional prompt to direct the edit,
-  and one listing is enough. Uses the `FAL_KEY` in the proxy; no Decart key needed.
+- **Lucy Edit Pro (open, Wan-based)** — `decart/lucy-edit/pro`. Decart's open-weight editor built on the
+  Wan 2.2 backbone. Runs through `/fal`, and **attempts to apply each eBay item as a reference image**:
+  the app probes candidate field names (`image_url` / `reference_image_url` / `ref_image_url`) — a wrong
+  one is rejected at submit before any generation — and **falls back to a prompt-driven wardrobe edit**
+  if none is accepted. Needs a generated baseline video; uses `FAL_KEY`, no Decart key.
+- **Wan 2.2 A14B (open, restyle)** — `fal-ai/wan/v2.2-a14b/video-to-video`. General video-to-video via
+  `/fal` (`video_url` + `prompt`); prompt-driven **restyle** of the whole baseline video — the item image
+  is **not** applied, so one listing is enough.
 
 ## Notes & limitations
 
