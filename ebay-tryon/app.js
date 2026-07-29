@@ -53,6 +53,22 @@ const DIRECTORS = Array.isArray(window.DIRECTOR_DEFINITIONS) ? window.DIRECTOR_D
 // Vibes (one-sentence mood modifiers) are defined in vibes.js.
 const VIBES = Array.isArray(window.VIBE_DEFINITIONS) ? window.VIBE_DEFINITIONS : [];
 
+// Video-editing models for the try-on step. Two engines:
+//   decart — Decart's /v1 job API (multipart: baseline video + item image). True
+//            reference-guided / virtual try-on: the eBay item is applied to the person.
+//   fal    — open-weights video-to-video on fal (JSON: video_url + prompt). Prompt-driven
+//            restyle of the whole baseline video; the selected item image is NOT applied.
+const TRYON_MODELS = [
+  { id: "lucy-latest",    engine: "decart", label: "Decart · Lucy (latest) — try-on" },
+  { id: "lucy-vton-2",    engine: "decart", label: "Decart · Lucy VTON 2 — virtual try-on" },
+  { id: "lucy-vton-3",    engine: "decart", label: "Decart · Lucy VTON 3 — virtual try-on" },
+  { id: "lucy-2.5",       engine: "decart", label: "Decart · Lucy 2.5 — edit" },
+  { id: "lucy-restyle-2", engine: "decart", label: "Decart · Lucy Restyle 2" },
+  { id: "fal-ai/wan/v2.2-a14b/video-to-video", engine: "fal", label: "Wan 2.2 A14B — open (restyle)" },
+  { id: "fal-ai/ltx-2-19b/video-to-video",     engine: "fal", label: "LTX-2 19B — open (restyle)" },
+];
+const tryonModel = () => TRYON_MODELS.find((m) => m.id === els.tryonModel.value) || TRYON_MODELS[0];
+
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_SELECT = 5;
@@ -106,6 +122,8 @@ const els = {
   genBtn: $("genBtn"),
   genStatus: $("genStatus"),
 
+  tryonModel: $("tryonModel"),
+  tryonModelHint: $("tryonModelHint"),
   ebayUrl: $("ebayUrl"),
   sellerInput: $("sellerInput"),
   loadBtn: $("loadBtn"),
@@ -137,6 +155,7 @@ const LS_SETLOC = "tryon_setlocations";
 let generating = false;
 let generatingKind = null; // "character" | "setting" while an image is generating
 let compositeUrl = null;   // staged 16:9 shot (actor composited/reframed), animated by Kling
+let baselineVideoUrl = null; // fal URL of the generated baseline video (for open v2v models)
 let compositeSig = null;   // signature of the (actor,set) the composite was built from
 let compositeToken = 0;    // supersedes in-flight composite builds
 let compositing = false;   // true while the composite is being staged
@@ -167,6 +186,8 @@ let running = false;
   });
 
   setupSourceImages();
+  renderTryonModels();
+  els.tryonModel.addEventListener("change", updateTryonModelHint);
   els.loadBtn.addEventListener("click", loadListings);
   els.ebayUrl.addEventListener("keydown", (e) => { if (e.key === "Enter") loadListings(); });
   els.extractBtn.addEventListener("click", extractFromPaste);
@@ -647,6 +668,7 @@ async function generateSource() {
     const blob = await vidRes.blob();
     const file = new File([blob], "baseline-source.mp4", { type: blob.type || "video/mp4" });
 
+    baselineVideoUrl = videoUrl; // keep the fal URL for open v2v models
     setVideo(file);
     setGenStatus(`✅ That's a wrap — set as your baseline video below.`, "ok");
   } catch (err) {
@@ -880,10 +902,34 @@ function setListingsStatus(msg, isError) {
   els.listingsStatus.style.color = isError ? "#ffc9c9" : "";
 }
 
+// Populate the video-editing model dropdown and its per-engine hint.
+function renderTryonModels() {
+  if (!els.tryonModel) return;
+  els.tryonModel.innerHTML = "";
+  TRYON_MODELS.forEach((m) => {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = m.label;
+    els.tryonModel.appendChild(opt);
+  });
+  updateTryonModelHint();
+}
+
+function updateTryonModelHint() {
+  const m = tryonModel();
+  els.tryonModelHint.innerHTML = m.engine === "decart"
+    ? "Decart <strong>virtual try-on</strong> — applies each selected eBay item onto the person in the baseline video. Needs your Decart API key."
+    : "Open-weights <strong>restyle</strong> on fal — edits the whole baseline video from the optional prompt (section 2). The selected item image is <em>not</em> applied, so one listing is enough. Needs a generated baseline video.";
+  refreshGenerate();
+}
+
 // ---- Generate -------------------------------------------------------------
 function refreshGenerate() {
-  const ready = !running && !!videoFile && selected.length >= 1 &&
-                selected.length <= MAX_SELECT && els.apiKey.value.trim().length > 0;
+  const m = tryonModel();
+  const haveVideo = m.engine === "fal" ? !!baselineVideoUrl : !!videoFile;
+  const haveAuth = m.engine === "fal" ? true : els.apiKey.value.trim().length > 0;
+  const ready = !running && haveVideo && haveAuth &&
+                selected.length >= 1 && selected.length <= MAX_SELECT;
   els.generateBtn.disabled = !ready;
   els.generateBtn.textContent = selected.length
     ? `✨ Generate ${selected.length} video${selected.length === 1 ? "" : "s"}`
@@ -892,11 +938,13 @@ function refreshGenerate() {
 
 async function generate() {
   clearError();
+  const model = tryonModel();
   const apiKey = els.apiKey.value.trim();
-  const model = "lucy-latest";
   const prompt = els.prompt.value.trim();
-  if (!apiKey) return showError("Add your Decart API key in ⚙️ API Settings.");
-  if (!videoFile) return showError("Choose a baseline video first.");
+  if (model.engine === "decart" && !apiKey) return showError("Add your Decart API key in ⚙️ API Settings.");
+  if (model.engine === "fal" && !baselineVideoUrl) return showError("Generate a baseline video first — open models edit the generated clip.");
+  if (model.engine === "decart" && !videoFile) return showError("Generate a baseline video first.");
+  if (model.engine === "fal" && /api\.decart\.ai/i.test(apiBase())) return showError("Set the API base URL to your Deno proxy (Settings) — open models run through fal.");
   if (!selected.length) return showError("Select at least one listing.");
 
   running = true;
@@ -962,6 +1010,22 @@ async function runOne(item, card, { apiKey, model, prompt }) {
   };
 
   try {
+    if (model.engine === "fal") {
+      // Open-weights video-to-video: restyle the whole baseline video by prompt.
+      setStatus("Submitting to the open model…");
+      const editPrompt = prompt || "Cinematic restyle; keep the person, wardrobe, and motion intact.";
+      const result = await falRun(model.id, { video_url: baselineVideoUrl, prompt: editPrompt }, (status, secs) =>
+        setProgress(status === "IN_PROGRESS" ? `Editing… (${secs}s)` : `In queue… (${secs}s)`, status === "IN_PROGRESS" ? 60 : 35));
+      const url = extractVideoUrl(result);
+      if (!url) { console.error("fal result:", result); throw new Error("No video URL in the result. Got: " + JSON.stringify(result).slice(0, 300)); }
+      setProgress("Downloading result…", 92);
+      const vr = await fetch(`${proxyRoot()}/img?url=${encodeURIComponent(url)}`);
+      if (!vr.ok) throw new Error(`Couldn't download the result (HTTP ${vr.status}).`);
+      showOutputVideo(card, await vr.blob(), item);
+      return;
+    }
+
+    // Decart engine — reference-guided / virtual try-on.
     setStatus("Fetching item image…");
     // Pull the eBay image bytes through the proxy so we can upload them.
     const imgRes = await fetch(`${proxyRoot()}/img?url=${encodeURIComponent(item.image)}`);
@@ -974,7 +1038,7 @@ async function runOne(item, card, { apiKey, model, prompt }) {
     form.append("reference_image", refBlob, "reference.jpg");
     if (prompt) form.append("prompt", prompt);
 
-    const createRes = await fetch(`${apiBase()}/jobs/${encodeURIComponent(model)}`, {
+    const createRes = await fetch(`${apiBase()}/jobs/${encodeURIComponent(model.id)}`, {
       method: "POST",
       headers: { "x-api-key": apiKey },
       body: form,

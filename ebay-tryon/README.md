@@ -128,10 +128,19 @@ Redeploy that file to your Deno project, then set **⚙️ API Settings → API 
 `https://<your-project>.deno.net/v1`. Verify with `https://<your-project>.deno.net/__whoami`
 → should print `decart-proxy DENO v6 (ebay+decart)`.
 
-## Model
+## Video editing model
 
-Fixed to **`lucy-latest`** (Decart's current reference-guided video model) — it applies the item from
-each listing's reference image onto the person in the baseline video.
+A **Video editing model** dropdown in the Generate panel selects the try-on engine:
+
+- **Decart (Lucy)** — `lucy-latest`, `lucy-vton-2` / `lucy-vton-3` (virtual try-on), `lucy-2.5`,
+  `lucy-restyle-2`. Runs through the `/v1` job API (multipart: baseline video + item image) and
+  performs true **reference-guided / virtual try-on** — the eBay item is applied to the person. Needs
+  your Decart API key.
+- **Open-weights (fal)** — **Wan 2.2 A14B** (`fal-ai/wan/v2.2-a14b/video-to-video`) and **LTX-2 19B**
+  (`fal-ai/ltx-2-19b/video-to-video`). Runs through `/fal` (JSON: `video_url` + `prompt`) and does a
+  prompt-driven **restyle** of the whole generated baseline video. These are general video-to-video
+  models, so they **do not apply the selected item image** — use the optional prompt to direct the edit,
+  and one listing is enough. Uses the `FAL_KEY` in the proxy; no Decart key needed.
 
 ## Notes & limitations
 
