@@ -64,8 +64,8 @@ const TRYON_MODELS = [
   { id: "lucy-vton-3",    engine: "decart", label: "Decart · Lucy VTON 3 — virtual try-on" },
   { id: "lucy-2.5",       engine: "decart", label: "Decart · Lucy 2.5 — edit" },
   { id: "lucy-restyle-2", engine: "decart", label: "Decart · Lucy Restyle 2" },
+  { id: "decart/lucy-edit/pro", engine: "fal", usesItem: true, label: "Lucy Edit Pro — open, Wan-based (garment edit)" },
   { id: "fal-ai/wan/v2.2-a14b/video-to-video", engine: "fal", label: "Wan 2.2 A14B — open (restyle)" },
-  { id: "fal-ai/ltx-2-19b/video-to-video",     engine: "fal", label: "LTX-2 19B — open (restyle)" },
 ];
 const tryonModel = () => TRYON_MODELS.find((m) => m.id === els.tryonModel.value) || TRYON_MODELS[0];
 
@@ -709,20 +709,30 @@ function extractVideoUrl(r) {
   return found;
 }
 
-// Submit an input to a fal.ai model via the proxy queue, poll to completion,
-// and return the result JSON. onStatus(status, seconds) is called while polling.
-async function falRun(model, input, onStatus) {
+// Submit an input to a fal.ai model via the proxy queue. Returns the submit JSON,
+// or throws a tagged error (err.submitFailed = true) if the queue rejects it —
+// e.g. a schema/validation (422) rejection, which happens before any generation.
+async function falSubmit(model, input) {
   const submitRes = await fetch(`${proxyRoot()}/fal/${model}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
   const submit = await submitRes.json().catch(() => ({}));
-  if (!submitRes.ok) throw new Error(submit.error || submit.detail || `Submit failed (HTTP ${submitRes.status})`);
+  if (!submitRes.ok) {
+    const detail = typeof submit.detail === "object" ? JSON.stringify(submit.detail) : submit.detail;
+    const e = new Error(submit.error || detail || `Submit failed (HTTP ${submitRes.status})`);
+    e.submitFailed = true;
+    throw e;
+  }
+  return submit;
+}
+
+// Poll a submitted fal job to completion and return the result JSON.
+async function falPoll(model, submit, onStatus) {
   const reqId = submit.request_id;
   const statusUrl = falToProxy(submit.status_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}/status`;
   const resultUrl = falToProxy(submit.response_url) || `${proxyRoot()}/fal/${model}/requests/${reqId}`;
-
   const started = Date.now();
   while (true) {
     if (Date.now() - started > 15 * 60 * 1000) throw new Error("Timed out after 15 minutes.");
@@ -736,6 +746,32 @@ async function falRun(model, input, onStatus) {
     if (onStatus) onStatus(status, Math.round((Date.now() - started) / 1000));
   }
   return await (await fetch(resultUrl)).json().catch(() => ({}));
+}
+
+// Submit + poll a fal model.
+async function falRun(model, input, onStatus) {
+  return falPoll(model, await falSubmit(model, input), onStatus);
+}
+
+// Try candidate inputs in order; use the first the queue ACCEPTS (submit succeeds),
+// then poll only that one. Lets us probe whether a model takes a reference-image
+// field (Lucy Edit) without running a full generation for each wrong guess — a
+// bad field is rejected at submit, before any compute. Returns { result, input }.
+async function falRunFirstAccepted(model, candidates, onStatus) {
+  let lastErr;
+  for (const input of candidates) {
+    let submit;
+    try {
+      submit = await falSubmit(model, input);
+    } catch (e) {
+      lastErr = e;
+      if (e.submitFailed) continue; // schema rejection — try the next variant
+      throw e;                      // network/other — don't silently fall back
+    }
+    const result = await falPoll(model, submit, onStatus);
+    return { result, input };
+  }
+  throw lastErr || new Error("No input variant was accepted.");
 }
 
 function setStatusEl(el, html, cls) {
@@ -917,9 +953,15 @@ function renderTryonModels() {
 
 function updateTryonModelHint() {
   const m = tryonModel();
-  els.tryonModelHint.innerHTML = m.engine === "decart"
-    ? "Decart <strong>virtual try-on</strong> — applies each selected eBay item onto the person in the baseline video. Needs your Decart API key."
-    : "Open-weights <strong>restyle</strong> on fal — edits the whole baseline video from the optional prompt (section 2). The selected item image is <em>not</em> applied, so one listing is enough. Needs a generated baseline video.";
+  let hint;
+  if (m.engine === "decart") {
+    hint = "Decart <strong>virtual try-on</strong> — applies each selected eBay item onto the person in the baseline video. Needs your Decart API key.";
+  } else if (m.usesItem) {
+    hint = "Open Wan-based <strong>edit</strong> (Lucy Edit) — attempts to apply each selected eBay item to the person via a reference image; falls back to a prompt-driven wardrobe edit if the model doesn't take the image. Needs a generated baseline video.";
+  } else {
+    hint = "Open-weights <strong>restyle</strong> on fal — edits the whole baseline video from the optional prompt (section 2). The selected item image is <em>not</em> applied, so one listing is enough. Needs a generated baseline video.";
+  }
+  els.tryonModelHint.innerHTML = hint;
   refreshGenerate();
 }
 
@@ -1011,11 +1053,35 @@ async function runOne(item, card, { apiKey, model, prompt }) {
 
   try {
     if (model.engine === "fal") {
-      // Open-weights video-to-video: restyle the whole baseline video by prompt.
-      setStatus("Submitting to the open model…");
-      const editPrompt = prompt || "Cinematic restyle; keep the person, wardrobe, and motion intact.";
-      const result = await falRun(model.id, { video_url: baselineVideoUrl, prompt: editPrompt }, (status, secs) =>
-        setProgress(status === "IN_PROGRESS" ? `Editing… (${secs}s)` : `In queue… (${secs}s)`, status === "IN_PROGRESS" ? 60 : 35));
+      // Open-weights video-to-video on fal.
+      const onS = (status, secs) =>
+        setProgress(status === "IN_PROGRESS" ? `Editing… (${secs}s)` : `In queue… (${secs}s)`, status === "IN_PROGRESS" ? 60 : 35);
+      let result;
+      if (model.usesItem) {
+        // Lucy Edit — try to apply the eBay item as a reference image. We don't
+        // know the exact field name, so probe a few; a wrong one is rejected at
+        // submit (no wasted generation). If none is accepted, fall back to a
+        // prompt-only edit that describes swapping in the garment.
+        setStatus("Applying the item (reference image)…");
+        const refUrl = `${proxyRoot()}/img?url=${encodeURIComponent(item.image)}`;
+        const editPrompt = prompt ||
+          "Replace the person's outfit with the clothing shown in the reference image, keeping the same person, pose, lighting, and motion.";
+        const base = { video_url: baselineVideoUrl, prompt: editPrompt };
+        const res = await falRunFirstAccepted(model.id, [
+          { ...base, image_url: refUrl },
+          { ...base, reference_image_url: refUrl },
+          { ...base, ref_image_url: refUrl },
+          base, // prompt-only fallback
+        ], onS);
+        result = res.result;
+        if (!("image_url" in res.input || "reference_image_url" in res.input || "ref_image_url" in res.input)) {
+          console.warn("Lucy Edit did not accept a reference-image field — used prompt-only edit.");
+        }
+      } else {
+        setStatus("Submitting to the open model…");
+        const editPrompt = prompt || "Cinematic restyle; keep the person, wardrobe, and motion intact.";
+        result = await falRun(model.id, { video_url: baselineVideoUrl, prompt: editPrompt }, onS);
+      }
       const url = extractVideoUrl(result);
       if (!url) { console.error("fal result:", result); throw new Error("No video URL in the result. Got: " + JSON.stringify(result).slice(0, 300)); }
       setProgress("Downloading result…", 92);
