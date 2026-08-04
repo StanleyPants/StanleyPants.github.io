@@ -50,6 +50,75 @@ flowchart LR
   carry a real `Content-Length`, and adds CORS. `GET /__whoami` returns the version marker.
 - **External services** — fal.ai (image + video models), eBay Browse API (listings), Decart (try-on).
 
+## User journey (sequence)
+
+What you do, and what each step calls behind the scenes. Note the try-on branch: the **Decart** engine
+uploads the whole baseline video (the large upload that can fail), while the **open** models pass a
+video URL.
+
+```mermaid
+sequenceDiagram
+  actor U as You
+  participant App as Studio (browser)
+  participant Px as Deno proxy
+  participant Fal as fal.ai
+  participant EB as eBay
+  participant DC as Decart
+
+  Note over U,Fal: 1 · Create the baseline video
+  U->>App: Describe the actor
+  App->>Px: generate actor images
+  Px->>Fal: Nano Banana x4 (9:16)
+  Fal-->>App: 4 candidates
+  App-->>U: Show 4 actor options
+  U->>App: Pick an actor
+
+  opt Choose a set (optional)
+    U->>App: Describe the set
+    App->>Px: generate set images
+    Px->>Fal: Nano Banana x4 (16:9)
+    Fal-->>App: 4 candidates
+    App-->>U: Show 4 set options
+    U->>App: Pick a set
+  end
+
+  App->>Px: stage the shot
+  Px->>Fal: Nano Banana edit -> 16:9 composite
+  Fal-->>App: Composite image
+  App-->>U: Show composite on the stage
+
+  U->>App: Pick Template / Director / Vibe / Sound, click Generate
+  App->>Px: animate composite
+  Px->>Fal: Kling 2.6 Pro (image to video)
+  Fal-->>App: Baseline video
+  App-->>U: Play baseline video (16:9 + audio)
+
+  Note over U,EB: 2 · Pick eBay items
+  U->>App: Search (keywords / seller)
+  App->>Px: fetch listings
+  Px->>EB: Browse API
+  EB-->>App: First 10 images
+  App-->>U: Show listings
+  U->>App: Select up to 5
+
+  Note over U,DC: 3 · Generate try-on videos
+  U->>App: Choose editing model, click Generate
+  loop Each selected listing
+    alt Decart engine (virtual try-on)
+      App->>Px: upload video + item image
+      Px->>DC: Lucy try-on job
+      DC-->>App: Output video
+    else Open model (Lucy Edit / Wan)
+      App->>Px: video URL + prompt (+ item image)
+      Px->>Fal: Lucy Edit / Wan v2v
+      Fal-->>App: Output video
+    end
+    App-->>U: Show output video + download
+  end
+```
+
+![User-perspective sequence diagram](docs/architecture-sequence.png)
+
 ## Data pipeline
 
 ```mermaid
